@@ -1,6 +1,18 @@
 from __future__ import print_function
 import numpy as np
 
+
+class Atom(object):
+
+    def __init__(self, identifier, **kwargs):
+        self.id = identifier
+        self.type = kwargs.get('type', None)
+        self.element = kwargs.get('element', None)
+        self.xyz = kwargs.get('xyz', None)
+        self.stress = kwargs.get('stress', None)
+        self.distance = None
+
+
 class Box(object):
 
     def __init__(self, timestep):
@@ -24,3 +36,10 @@ class Box(object):
             atom.distance = np.linalg.norm(coor - self.center)
 
     def atom_stats(self, type):
+        pass
+
+    def pressure_stats(self, dr):
+        pass
+
+    def shell_stats(self, dr):
+        pass
