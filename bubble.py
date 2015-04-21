@@ -5,9 +5,6 @@ import numpy as np
 
 import settings
 
-class AtomUnmeasuredError(Exception):
-    pass
-
 
 class Atom(object):
 
@@ -113,6 +110,20 @@ class Box(object):
     def vol_sphere(self, r):
         return 4.0/3 * Box.PI * (r ** 3)
 
+
+
+#################################################
+################# Exceptions ####################
+#################################################
+
+class AtomUnmeasuredError(Exception):
+    pass
+
+
+################################################
+################## Functions ###################
+################################################
+
 def next_n_lines(file_opened, N, strip='right'):
   strip_dic = {
     'right': string.rstrip,
@@ -123,6 +134,7 @@ def next_n_lines(file_opened, N, strip='right'):
     return [strip_dic[strip](x) for x in islice(file_opened, N)]
   else:
     return list(islice(file_opened, N))
+
 
 def read_stress(stress_file, N=settings.NLINES):
     atoms = {}
@@ -142,3 +154,13 @@ def read_stress(stress_file, N=settings.NLINES):
         # Process next N lines.
         data = next_n_lines(stress_file, N)[9:]
         count += 1
+    return atoms
+
+
+def build_box(atoms, timestep=timestep, radius=radius, center=center):
+    """Build a box from a list of atoms."""
+    box = Box(timestep, radius=radius, center=center)
+    for atom in atoms:
+        box.add_atom(atom)
+    box.measure()
+    return box

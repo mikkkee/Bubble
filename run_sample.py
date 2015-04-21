@@ -1,9 +1,52 @@
-from bubble import Atom, Box, readstress
+import os
+from bubble import Atom, Box, read_stress, build_box
 import settings
 
 
 def main():
-    pass
+    for path in settings.DUMP_PATH:
+        stress_file = os.path.join(path, settings.DUMP_NAME)
+        atoms = read_stress(stress_file, settings.NLINES)
+        # Define output file pattern.
+        ratio_out = 'ratio_{time}_{ele}.out'
+        ratio_header = '\t'.join(['Radius', 'Atom ratio\n'])
+        pressure_out = 'pressure_{time}_{ele}.out'
+        pressure_header = '\t'.join(['Radius', 'In bubble pressure', 'Out bubble pressure\n'])
+
+        for key in atoms:
+            # Stats for each timestep.
+            box = build_box(atoms[key], radius=settings.MAX_RADIUS,
+                timestep=key, center=settings.CENTER)
+
+            for element in settings.ATOM_STATS_ELEMENTS:
+                # Atom stats for each element.
+                print("Atom stats for {e}\n".format(e=element))
+                ratio = box.atom_stats(element, settings.DR)
+                ratio_name = ratio_out.format(time=key, ele=element)
+                ratio_name = os.path.join(path, ratio_name)
+                with open(ratio_name, 'w') as ratio_file:
+                    ratio_file.write(ratio_header)
+                    for i,item in ratio:
+                        radius = (i + 1) * settings.DR
+                        ratio_file.write('{r}\t{p}\n'.format(r=radius, p=item))
+
+            for elements in settings.PRESSURE_STATS_ELEMENTS:
+                # Pressure stats for each group of elements.
+                print("Pressure stats for {e}\n".format(e=''.join(elements)))
+                pressure = box.pressure_stats(elements, settings.DR)
+                pressure_name = pressure_out.format(time=key, ele="".join(elements))
+                pressure_name = os.path.join(path, pressure_name)
+                with open(pressure_name, 'w') as p_file:
+                    p_file.write(pressure_header)
+                    for i, item in pressure['in']:
+                        radius = (i + 1) * settings.DR
+                        pressure_in = item
+                        if i < len(pressure['in']) - 1:
+                            pressure_out = pressure['out'][i + 1]
+                        else:
+                            pressure_out = 0
+                        p_file.write('{r}\t{pin}\t{pout}\n'.format(r=radius, pin=pressure_in, pout=pressure_out))
+
 
 
 if __name__ == '__main__':
