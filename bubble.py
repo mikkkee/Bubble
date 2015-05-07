@@ -1,5 +1,6 @@
 from __future__ import print_function
 import math
+import string
 from itertools import islice
 import numpy as np
 
@@ -28,7 +29,9 @@ class Box(object):
         self.bx = kwargs.get('bx', None)
         self.by = kwargs.get('by', None)
         self.bz = kwargs.get('bz', None)
+        # Max radius in box.
         self.radius = kwargs.get('radius', None)
+        # Bubble center coordinates.
         self.center = kwargs.get('center', None)
         # All atoms.
         self.atoms = []
@@ -70,13 +73,14 @@ class Box(object):
             ele_bins[ele] = [0 for x in range(nbins)]
             for atom in self._elements[ele]:
                 # Histogram.
-                ele_bins[ele][int(atom.distance / dr)] += 1
+                if atom.distance < self.radius:
+                    ele_bins[ele][int(atom.distance / dr)] += 1
             for i in range(1, nbins):
                 # Cumulative frequency histogram
                 ele_bins[ele][i] += ele_bins[ele][i-1]
             # Convert to Numpy.Array.
-            ele_bins[ele] = np.array(ele_bins[ele])
-
+            ele_bins[ele] = np.array([float(x) for x in ele_bins[ele]])
+        # Return count ratio of one element to all elements in each bubble.
         return ele_bins[element] / sum(ele_bins.values())
 
     def pressure_stats(self, elements, dr):
@@ -88,7 +92,8 @@ class Box(object):
         for ele in elements:
             for atom in self._elements[ele]:
                 # In bubble stress histogram.
-                stress_in[int(atom.distance / dr)] += sum(atom.stress)
+                if atom.distance < self.radius:
+                    stress_in[int(atom.distance / dr)] += sum(atom.stress)
         # Out bubble stress histogram.
         stress_out = [x for x in stress_in]
 
@@ -157,7 +162,7 @@ def read_stress(stress_file, N=settings.NLINES):
     return atoms
 
 
-def build_box(atoms, timestep=timestep, radius=radius, center=center):
+def build_box(atoms, timestep, radius, center):
     """Build a box from a list of atoms."""
     box = Box(timestep, radius=radius, center=center)
     for atom in atoms:
