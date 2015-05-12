@@ -1,0 +1,13 @@
+ITEM: TIMESTEP
+0
+ITEM: NUMBER OF ATOMS
+583752
+ITEM: BOX BOUNDS pp pp pp
+-1.23 197.29
+-1.22 197.31
+-1.25 197.27
+ITEM: ATOMS id type x y z f_StressAve[1] f_StressAve[2] f_StressAve[3]
+1 2 1 1 1 0 0 0
+2 3 2 2 2 0 0 0
+3 3 3 3 3 0 0 0
+4 1 0.2 0.2 0.2 0 0 0
