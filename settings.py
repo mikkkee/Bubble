@@ -6,7 +6,7 @@
 DUMP_PATH = ['dump/', ]
 
 # Dump file name.
-DUMP_NAME = 'stress_test.out'
+DUMP_NAME = 'test_stress.out'
 
 # Number of lines for each timestep.
 NLINES = 14
@@ -49,12 +49,14 @@ PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ]
 #################################################
 
 # Keep DEBUG value to False when using.
-DEBUG = False
+DEBUG = True
 
 # File name of container for test run output file names.
 NAMES_CONTAINER = 'names.txt'
 
 # Test ratio / pressure results.
-NE_RATIO_FILE = 'dump/ratio_ne_test.out'
-NE_PRESSURE_FILE = 'dump/pressure_ne_test.out'
-HO_PRESSURE_FILE = 'dump/pressure_ho_test.out'
+NE_RATIO_FILE = 'dump/test_ratio_ne.out'
+NE_PRESSURE_FILE = 'dump/test_pressure_ne.out'
+HO_PRESSURE_FILE = 'dump/test_pressure_ho.out'
+NE_SHELL_PRESSURE_FILE = 'dump/test_shell_pressure_ne.out'
+HO_SHELL_PRESSURE_FILE = 'dump/test_shell_pressure_ho.out'

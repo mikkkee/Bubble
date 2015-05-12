@@ -58,9 +58,15 @@ class TestSampleInput(TestCase):
             self.ne_pressure = ne_pressure.read()
         with open(settings.HO_PRESSURE_FILE, 'r') as ho_pressure:
             self.ho_pressure = ho_pressure.read()
+        with open(settings.NE_SHELL_PRESSURE_FILE, 'r') as ne_sp:
+            self.ne_shell_pressure = ne_sp.read()
+        with open(settings.HO_SHELL_PRESSURE_FILE, 'r') as ho_sp:
+            self.ho_shell_pressure = ho_sp.read()
         # Names for test results.
         with open(settings.NAMES_CONTAINER, 'r') as names:
-            self.curr_ne_ratio, self.curr_ne_pressure, self.curr_ho_pressure = \
+            self.curr_ne_ratio, \
+            self.curr_ne_pressure, self.curr_ne_shell_pressure, \
+            self.curr_ho_pressure, self.curr_ho_shell_pressure = \
             [x.strip() for x in names.readlines()]
 
     def test_ne_ratio(self):
@@ -77,3 +83,13 @@ class TestSampleInput(TestCase):
         with open(self.curr_ho_pressure, 'r') as curr_ho_pressure_file:
             curr_ho_pressure = curr_ho_pressure_file.read()
             self.assertEqual(self.ho_pressure, curr_ho_pressure)
+
+    def test_ne_shell_pressure(self):
+        with open(self.curr_ne_shell_pressure, 'r') as nsp:
+            cc = nsp.read()
+            self.assertEqual(self.ne_shell_pressure, cc)
+
+    def test_ho_shell_pressure(self):
+        with open(self.curr_ho_shell_pressure, 'r') as ho_sp:
+            cc = ho_sp.read()
+            self.assertEqual(self.ho_shell_pressure, cc)

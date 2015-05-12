@@ -71,6 +71,7 @@ class Box(object):
             atom.distance = np.linalg.norm(coor - self.center)
 
     def atom_stats(self, element, dr):
+        """Atom ratio stats inside bubble."""
         if not self._stats_finished:
             self.stats(dr)
         nbins = len(self._shell_atoms[element])
@@ -131,7 +132,7 @@ class Box(object):
         stress_out[nbins - 1] = 0 - stress_out[nbins - 1] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins - 1)*dr)) / 3
         return {'in': stress_in, 'out': stress_out}
 
-    def shell_stats(self, elements, dr):
+    def shell_pressure_stats(self, elements, dr):
         if not self._stats_finished:
             self.stats(dr)
 
