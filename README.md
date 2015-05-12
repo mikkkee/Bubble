@@ -24,7 +24,7 @@ Box
                          # dr is used as step when increasing radius.
     - shell_stats(dr)    # Pressure shell distribution.
 
- Atom
+Atom
    - properties
      - id
      - type
