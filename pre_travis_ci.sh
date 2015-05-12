@@ -7,4 +7,4 @@ cp settings_test.py settings.py
 python run_sample.py
 
 # Empty output file names container.
-echo > names.txt
+echo -n '' > names.txt
