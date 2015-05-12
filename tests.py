@@ -7,7 +7,7 @@ class TestBox(TestCase):
 
     def setUp(self):
         self.box = Box(100, radius=10, center=(0,0,0))
-        self.atom = Atom(1, type=1, element="Ne", xyz=(1,1,1))
+        self.atom = Atom(1, type=1, element="Ne", xyz=(1,1,1), stress=(1,1,1))
 
     def test_add_atom(self):
         self.box.add_atom(self.atom)

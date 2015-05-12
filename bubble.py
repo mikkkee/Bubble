@@ -36,10 +36,14 @@ class Box(object):
         self.center = kwargs.get('center', None)
         # All atoms.
         self.atoms = []
-        # Hold atoms by element.
+        # Hold atoms for each element.
         self._elements = {}
-        self._shell_count = 0
-        self._classified = False
+        # Hold shell stress for each element.
+        self._shell_stress = {}
+        # Hold shell atom count for each element.
+        self._shell_atoms = {}
+        # Indicator of stats status.
+        self._stats_finished = False
         self._measured = False
 
     @property
@@ -53,6 +57,8 @@ class Box(object):
     def add_atom(self, atom):
         self.atoms.append(atom)
         self.count += 1
+        # Need to run stats after new atom added.
+        self._stats_finished = False
         if atom.element in self._elements:
             self._elements[atom.element].append(atom)
         else:
@@ -65,51 +71,64 @@ class Box(object):
             atom.distance = np.linalg.norm(coor - self.center)
 
     def atom_stats(self, element, dr):
-        if not self.measured:
-            raise AtomUnmeasuredError("Some atoms are unmeasured");
-
-        nbins = int(math.ceil(self.radius / float(dr)))
-        ele_bins = {}
-        for ele in self._elements.keys():
-            ele_bins[ele] = [0 for x in range(nbins)]
-            for atom in self._elements[ele]:
-                # Histogram.
-                if atom.distance < self.radius:
-                    ele_bins[ele][int(atom.distance / dr)] += 1
+        if not self._stats_finished:
+            self.stats(dr)
+        nbins = len(self._shell_atoms[element])
+        bubble_atoms = {}
+        # Init bubble atoms by copying shell atoms
+        for ele, count in self._shell_atoms.iteritems():
+            bubble_atoms[ele] = [x for x in count]
             for i in range(1, nbins):
-                # Cumulative frequency histogram
-                ele_bins[ele][i] += ele_bins[ele][i-1]
-            # Convert to Numpy.Array.
-            ele_bins[ele] = np.array([float(x) for x in ele_bins[ele]])
-        # Return count ratio of one element to all elements in each bubble.
-        return ele_bins[element] / sum(ele_bins.values())
+                bubble_atoms[ele][i] += bubble_atoms[ele][i - 1]
+            bubble_atoms[ele] = np.array(bubble_atoms[ele])
 
-    def pressure_stats(self, elements, dr):
+        return bubble_atoms[element] / sum(bubble_atoms.values())
+
+    def stats(self, dr):
+        """System stats.
+        Generate data for atom stats and stress stats for each element.
+        self._shell_atoms = {}
+        self._shell_stress = {}
+        """
         if not self.measured:
             raise AtomUnmeasuredError("Some atoms are unmeasuerd")
-
         nbins = int(math.ceil(self.radius / float(dr)))
-        stress_in = [0 for x in range(nbins)]
-        for ele in elements:
-            for atom in self._elements[ele]:
-                # In bubble stress histogram.
+
+        for ele, atoms in self._elements.iteritems():
+            # Do stats for each element.
+            self._shell_stress[ele] = [0.0 for x in range(nbins)]
+            self._shell_atoms[ele] = [0.0 for x in range(nbins)]
+            for atom in atoms:
                 if atom.distance < self.radius:
-                    stress_in[int(atom.distance / dr)] += sum(atom.stress)
-        # Out bubble stress histogram.
+                    # Only consider atoms inside maximum bubble.
+                    self._shell_stress[ele][int(atom.distance / dr)] += sum(atom.stress)
+                    self._shell_atoms[ele][int(atom.distance / dr)] += 1
+            # Convert shell stats to numpy.Array.
+            self._shell_stress[ele] = np.array(self._shell_stress[ele])
+            self._shell_atoms[ele] = np.array(self._shell_atoms[ele])
+        # No need to run stats again if done for once.
+        self._stats_finished = True
+
+    def pressure_stats(self, elements, dr):
+        if not self._stats_finished:
+            self.stats(dr)
+
+        nbins = len(self._shell_stress[elements[0]])
+        # Calculate stress for all element in elements as whole.
+        # Convert numpy.Array to mutable list.
+        stress_in = [x for x in sum([self._shell_stress[ele] for ele in elements])]
         stress_out = [x for x in stress_in]
-
         for i in range(1, nbins):
-            # Cumulative stress -> pressure.
+            # Cumulative stress.
             stress_in[i] += stress_in[i-1]
-            stress_out[nbins-1-i] += stress_out[nbins-i]
-
+            stress_out[nbins - 1 - i] += stress_out[nbins - i]
         for i in range(1, nbins):
+            # Stress -> pressure.
             stress_in[i] = - stress_in[i] / self.vol_sphere((i+1)*dr) / 3.0
             stress_out[nbins-1-i] = - stress_out[nbins-1-i] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins-i-1)*dr)) / 3
-        # Head and tail.
-        stress_in[0] = - stress_in[0] / self.vol_sphere(dr) / 3
-        stress_out[nbins - 1] = - stress_out[nbins - 1] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins - 1)*dr)) / 3
-
+            # Head and tail.
+            stress_in[0] = - stress_in[0] / self.vol_sphere(dr) / 3
+            stress_out[nbins - 1] = - stress_out[nbins - 1] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins - 1)*dr)) / 3
         return {'in': stress_in, 'out': stress_out}
 
     def shell_stats(self, dr):
