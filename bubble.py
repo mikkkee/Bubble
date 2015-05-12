@@ -22,15 +22,16 @@ class Box(object):
 
     PI = 3.1415926
 
-    def __init__(self, timestep=0, **kwargs):
+    def __init__(self, timestep=0, radius=None, **kwargs):
+        # Timestep of current
         self.timestep = timestep
+        # Maximum bubble radius in box.
+        self.radius = radius
         self.count = 0
         # XYZ boundaries.
         self.bx = kwargs.get('bx', None)
         self.by = kwargs.get('by', None)
         self.bz = kwargs.get('bz', None)
-        # Max radius in box.
-        self.radius = kwargs.get('radius', None)
         # Bubble center coordinates.
         self.center = kwargs.get('center', None)
         # All atoms.
@@ -100,12 +101,14 @@ class Box(object):
         for i in range(1, nbins):
             # Cumulative stress -> pressure.
             stress_in[i] += stress_in[i-1]
-            stress_in[i] = - stress_in[i] / self.vol_sphere((i+1)*dr) / 3.0
             stress_out[nbins-1-i] += stress_out[nbins-i]
+
+        for i in range(1, nbins):
+            stress_in[i] = - stress_in[i] / self.vol_sphere((i+1)*dr) / 3.0
             stress_out[nbins-1-i] = - stress_out[nbins-1-i] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins-i-1)*dr)) / 3
         # Head and tail.
-        stress_in[0] = stress_in[0] / self.vol_sphere(dr) / 3
-        stress_out[nbins - 1] = stress_out[nbins - 1] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins - 1)*dr)) / 3
+        stress_in[0] = - stress_in[0] / self.vol_sphere(dr) / 3
+        stress_out[nbins - 1] = - stress_out[nbins - 1] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins - 1)*dr)) / 3
 
         return {'in': stress_in, 'out': stress_out}
 

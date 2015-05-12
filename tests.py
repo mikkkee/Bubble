@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from bubble import Box, Atom, AtomUnmeasuredError
+import settings
 
 class TestBox(TestCase):
 
@@ -44,3 +45,35 @@ class TestBox(TestCase):
         self.assertTrue(pressure['in'][0] - p1 < 0.00000000001)
         self.assertTrue(pressure['in'][-1] - p2 < 0.00000000001)
         self.assertTrue(pressure['out'][0] - p2 < 0.00000000001)
+
+
+class TestSampleInput(TestCase):
+
+    def setUp(self):
+
+        # Read correct bench mark results for comparision.
+        with open(settings.NE_RATIO_FILE, 'r') as ne_ratio:
+            self.ne_ratio = ne_ratio.read()
+        with open(settings.NE_PRESSURE_FILE, 'r') as ne_pressure:
+            self.ne_pressure = ne_pressure.read()
+        with open(settings.HO_PRESSURE_FILE, 'r') as ho_pressure:
+            self.ho_pressure = ho_pressure.read()
+        # Names for test results.
+        with open(settings.NAMES_CONTAINER, 'r') as names:
+            self.curr_ne_ratio, self.curr_ne_pressure, self.curr_ho_pressure = \
+            [x.strip() for x in names.readlines()]
+
+    def test_ne_ratio(self):
+        with open(self.curr_ne_ratio, 'r') as curr_ne_ratio_file:
+            curr_ne_ratio = curr_ne_ratio_file.read()
+            self.assertEqual(self.ne_ratio, curr_ne_ratio)
+
+    def test_ne_pressure(self):
+        with open(self.curr_ne_pressure, 'r') as curr_ne_pressure_file:
+            curr_ne_pressure = curr_ne_pressure_file.read()
+            self.assertEqual(self.ne_pressure, curr_ne_pressure)
+
+    def test_ho_pressure(self):
+        with open(self.curr_ho_pressure, 'r') as curr_ho_pressure_file:
+            curr_ho_pressure = curr_ho_pressure_file.read()
+            self.assertEqual(self.ho_pressure, curr_ho_pressure)

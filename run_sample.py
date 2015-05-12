@@ -14,9 +14,9 @@ def main():
         print("Reading of atoms takes {d} seconds\n".format(d = duration))
         # Define output file pattern.
         ratio_out = 'ratio_{time}_{ele}.out'
-        ratio_header = '\t'.join(['Radius', 'Atom ratio\n'])
+        ratio_header = '\t'.join(['Radius', 'Atom_ratio\n'])
         pressure_output = 'pressure_{time}_{ele}.out'
-        pressure_header = '\t'.join(['Radius', 'In bubble pressure', 'Out bubble pressure\n'])
+        pressure_header = '\t'.join(['Radius', 'In_bubble_pressure', 'Out_bubble_pressure\n'])
 
         start = time.clock()
         for key in atoms:
@@ -30,11 +30,17 @@ def main():
                 ratio = box.atom_stats(element, settings.DR)
                 ratio_name = ratio_out.format(time=key, ele=element)
                 ratio_name = os.path.join(path, ratio_name)
+
+                if settings.DEBUG:
+                    # Write ratio file name to output name container.
+                    with open(settings.NAMES_CONTAINER, 'a') as names:
+                        names.write(ratio_name + '\n')
+
                 with open(ratio_name, 'w') as ratio_file:
                     ratio_file.write(ratio_header)
                     for i,item in enumerate(ratio):
                         radius = (i + 1) * settings.DR
-                        ratio_file.write('{r}\t{p}\n'.format(r=radius, p=item))
+                        ratio_file.write('{r:.4f}\t{p:.13f}\n'.format(r=radius, p=item))
 
             for elements in settings.PRESSURE_STATS_ELEMENTS:
                 # Pressure stats for each group of elements.
@@ -42,6 +48,12 @@ def main():
                 pressure = box.pressure_stats(elements, settings.DR)
                 pressure_name = pressure_output.format(time=key, ele="".join(elements))
                 pressure_name = os.path.join(path, pressure_name)
+
+                if settings.DEBUG:
+                    # Write ratio file name to output name container.
+                    with open(settings.NAMES_CONTAINER, 'a') as names:
+                        names.write(pressure_name + '\n')
+
                 with open(pressure_name, 'w') as p_file:
                     p_file.write(pressure_header)
                     for i, item in enumerate(pressure['in']):
@@ -51,7 +63,7 @@ def main():
                             pressure_out = pressure['out'][i + 1]
                         else:
                             pressure_out = 0
-                        p_file.write('{r}\t{pin}\t{pout}\n'.format(r=radius, pin=pressure_in, pout=pressure_out))
+                        p_file.write('{r:.3f}\t{pin:.13f}\t{pout:.13f}\n'.format(r=radius, pin=pressure_in, pout=pressure_out))
 
         duration = time.clock() - start
         print("Stats takes {d} seconds\n".format(d = duration))

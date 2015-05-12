@@ -49,7 +49,7 @@ PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ]
 #################################################
 
 # Do not change.
-DEBUG = False
+DEBUG = True
 
 # File name of container for test run output file names.
 NAMES_CONTAINER = 'names.txt'
