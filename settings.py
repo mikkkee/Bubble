@@ -48,7 +48,7 @@ PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ]
 ############### Debug settings ##################
 #################################################
 
-# Do not change.
+# Keep DEBUG value to False when using.
 DEBUG = False
 
 # File name of container for test run output file names.

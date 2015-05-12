@@ -131,8 +131,21 @@ class Box(object):
         stress_out[nbins - 1] = 0 - stress_out[nbins - 1] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins - 1)*dr)) / 3
         return {'in': stress_in, 'out': stress_out}
 
-    def shell_stats(self, dr):
-        pass
+    def shell_stats(self, elements, dr):
+        if not self._stats_finished:
+            self.stats(dr)
+
+        nbins = len(self._shell_stress[elements[0]])
+        # Calculate stress for all element in elements as whole.
+        # Convert numpy.Array to mutable list.
+        stress = [x for x in sum([self._shell_stress[ele] for ele in elements])]
+        # Calculate pressure.
+        for i in range(nbins):
+            r_low = i * dr
+            r_high = (i + 1) * dr
+            volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
+            stress[i] = 0 - stress[i] / volume / 3
+        return stress
 
     def vol_sphere(self, r):
         return 4.0/3 * Box.PI * (r ** 3)
