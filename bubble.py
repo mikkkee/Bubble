@@ -124,11 +124,11 @@ class Box(object):
             stress_out[nbins - 1 - i] += stress_out[nbins - i]
         for i in range(1, nbins):
             # Stress -> pressure.
-            stress_in[i] = - stress_in[i] / self.vol_sphere((i+1)*dr) / 3.0
-            stress_out[nbins-1-i] = - stress_out[nbins-1-i] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins-i-1)*dr)) / 3
-            # Head and tail.
-            stress_in[0] = - stress_in[0] / self.vol_sphere(dr) / 3
-            stress_out[nbins - 1] = - stress_out[nbins - 1] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins - 1)*dr)) / 3
+            stress_in[i] = 0 - stress_in[i] / self.vol_sphere((i+1)*dr) / 3.0
+            stress_out[nbins-1-i] = 0 - stress_out[nbins-1-i] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins-i-1)*dr)) / 3
+        # Head and tail.
+        stress_in[0] = 0 - stress_in[0] / self.vol_sphere(dr) / 3
+        stress_out[nbins - 1] = 0 - stress_out[nbins - 1] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins - 1)*dr)) / 3
         return {'in': stress_in, 'out': stress_out}
 
     def shell_stats(self, dr):
