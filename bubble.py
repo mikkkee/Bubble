@@ -64,6 +64,12 @@ class Box(object):
         self._measured = False
         self._stats_finished = False
 
+    def set_boundary(self, bx, by, bz):
+        """Set bx by bz together."""
+        self.bx = bx
+        self.by = by
+        self.bz = bz
+
     def add_atom(self, atom):
         self.atoms.append(atom)
         self.count += 1
@@ -75,7 +81,7 @@ class Box(object):
             self._elements[atom.element] = [atom]
 
     def measure(self):
-        '''Measure '''
+        """Measure """
         for atom in self.atoms:
             coor = np.array(atom.xyz)
             atom.distance = np.linalg.norm(coor - self.center)
@@ -121,6 +127,7 @@ class Box(object):
         self._stats_finished = True
 
     def pressure_stats(self, elements, dr):
+        """Average pressure stats inside bubble for species in elements."""
         if not self._stats_finished:
             self.stats(dr)
 
@@ -159,11 +166,63 @@ class Box(object):
             stress[i] = 0 - stress[i] / volume / 3
         return stress
 
-    def shell_atom_stats(self, elements, dr):
-        """Density? Atom ratio?"""
-        pass
+    def shell_density(self, elements, mole, dr):
+        """Shell density for species inside elements.
+        mole unit - g/cm^3
+        dr unit - angstrom
+        """
+        if not self._stats_finished:
+            self.stats(dr)
+        # Avogadro constant. Modified by coefficient used to
+        # convert angstrom^3 to cm^3.
+        NA = 6.022 / 10
+        nbins = len(self._shell_atoms[elements[0]])
+        # Calculate atom count for all species in elements as whole.
+        # Convert numpy.Array to mutable list.
+        count = [x for x in sum([self._shell_atoms[ele] for ele in elements])]
+        # Calculate density.
+        for i in range(nbins):
+            r_low = i * dr
+            r_high = r_low + dr
+            # Volume unit is Angstrom^3.
+            volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
+            count[i] = count[1] / NA / volume
+        return count
+
+    def xyz_density(self, elements, mole, dx):
+        """Density distribution along x, y, and z inside box."""
+        # Avogadro constant. Modified by coefficient used to
+        # convert angstrom^3 to cm^3.
+        NA = 6.022 / 10
+        nx = math.ceil((self.bx[1] - self.bx[0]) / dx)
+        ny = math.ceil((self.by[1] - self.by[0]) / dx)
+        nz = math.ceil((self.bz[1] - self.bz[0]) / dx)
+        dist = {}
+        dist['x'] = [0 for x in range(nx)]
+        dist['y'] = [0 for y in range(ny)]
+        dist['z'] = [0 for z in range(nz)]
+
+        for ele in elements:
+            # Count atoms.
+            for atom in self._elements[ele]:
+                dist['x'][int(atom.xyz[0] / dx)] += 1
+                dist['y'][int(atom.xyz[1] / dx)] += 1
+                dist['z'][int(atom.xyz[2] / dx)] += 1
+
+        volx = (self.by[1] - self.by[0]) * (self.bz[1] - self.bz[0]) * dx
+        voly = (self.bx[1] - self.bx[0]) * (self.bz[1] - self.bz[0]) * dx
+        volz = (self.by[1] - self.by[0]) * (self.bx[1] - self.bx[0]) * dx
+
+        for i in range(nx):
+            # Calculate density.
+            dist['x'][i] = dist['x'][i] / NA / volx
+            dist['y'][i] = dist['y'][i] / NA / voly
+            dist['z'][i] = dist['z'][i] / NA / volz
+        return dist
+
 
     def vol_sphere(self, r):
+        """Volume of sphere with radius r."""
         return 4.0/3 * Box.PI * (r ** 3)
 
 
@@ -193,6 +252,11 @@ def next_n_lines(file_opened, N, strip='right'):
 
 
 def read_stress(stress_file, N=settings.NLINES):
+    """Read dump file into a list of atoms, which have type / coordinates /
+    stresses info stored as Atom properties.
+    Dump file data format:
+    atom_id atom_type x y z stress_x stress_y stress_z
+    """
     atoms = {}
     count = 0
     data = next_n_lines(stress_file, N)[9:]
@@ -220,3 +284,39 @@ def build_box(atoms, timestep, radius, center):
         box.add_atom(atom)
     box.measure()
     return box
+
+
+def write_density(density, dr, outname, header):
+    """Write density (both shell and xyz density) stats to output file.
+    One density list at a time.
+    """
+    with open(outname, 'w') as output:
+        output.write(header)
+        for i, item in enumerate(density):
+            low = i * dr
+            hight = low + dr
+            output.write('{l}\t{h}\t{d}\n'.format(l=low, h=high, d=item))
+
+
+def write_pressure(pressure, dr, outname, header, bubble=False):
+    """Write pressure (both bubble and shell pressure) stats to output file.
+    If bubble is True, r_low is always zero.
+    """
+    with open(outname, 'w') as output:
+        output.write(header)
+        for i, item in enumerate(pressure):
+            low = 0 if bubble else i * dr
+            high = (i + 1) * dr
+            output.write('{l}\t{h}\t{p}\n'.format(l=low, h=high, p=item))
+
+
+def write_ratio(ratio, dr, outname, header, bubble=True):
+    """Write atom ratio stats to output file.
+    If bubble is True, r_low is always zero.
+    """
+    with open(outname, 'w') as output:
+        output.write(header)
+        for i, item in enumerate(ratio):
+            low = 0 if bubble else i * dr
+            high = (i + 1) * dr
+            output.write('{l}\t{h}\t{r}\n'.format(l=low, h=high, r=item))

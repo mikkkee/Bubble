@@ -21,14 +21,20 @@ CENTER = (0, 0, 0)
 # Maximum bubble radius, unit - angstrom.
 MAX_RADIUS = 8
 
-# dr - difference of two consequent raidus - used for stats
+# dr - difference of two consequent raidus - used for ratio/pressure stats
 DR = 0.5
+# A larger dr used for density stats.
+DENSITY_DR = 5
+
+# XYZ boundaries.
+BOUNDARY_X = (0, 100)
+BOUNDARY_Y = (0, 100)
+BOUNDARY_Z = (0, 100)
 
 
 #################################################
 ################# Atom settings #################
 #################################################
-
 
 # Atom elements to corresponding types.
 ELEMENTS = {
@@ -37,12 +43,29 @@ ELEMENTS = {
     3: 'H',
 }
 
-# Element to be used in atom stats.
-ATOM_STATS_ELEMENTS = ['Ne', ]
 
-# Elements to be used in pressure stats.
+#################################################
+############## Calculation settings #############
+#################################################
+
+# Perform bubble atom ratio stats on following element species.
+BUBBLE_ATOM_RATIO_STATS_ELEMENTS = ['Ne', ]
+
+# TODO: shell pressure stats.
+SHELL_ATOM_RATIO_STATS_ELEMENTS = []
+
+# Perform bubble pressure stats on following element species.
 # In / out bubble pressure are output for each group of atoms.
-PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ]
+BUBBLE_PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ['Ne', 'H', 'O'], ]
+
+# Perform shell pressure stats on following element species.
+SHELL_PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ['Ne', 'H', 'O'], ]
+
+# TODO: bubble density stats.
+BUBBLE_DENSITY_STATS_ELEMENTS = []
+
+# Perform shell density stats on following element species.
+SHELL_DENSITY_STATS_ELEMENTS = [['NE'], ['H', 'O'], ]
 
 #################################################
 ############### Debug settings ##################
