@@ -14,8 +14,19 @@ Box
     - `bz`, similar to `bx`.
     - `radius`, maximum bubble radius one can consider in stats.
     - `center`, center coordinates of the bubble, i.e. `(x, y, z)`.
-  - Members
     - `atoms`, a list of all atoms (instances of `Atom`) inside box.
+    - `_elements`, a dictionary containing all atoms categorized by their
+      element species.
+    - `_shell_stress`, a dictionary containing all shell stress categorized
+      by element species.
+    - `_shell_atoms`, a dictionary holding shell atoms categorized by their
+      element species.
+    - `_stats_finished`, a flag indicating whether `Box.stats()` has been run
+      over all atoms. `True` for yes, `False` means either there are atoms that
+      are newly added after last `Box.stats()` run, or `Box.stats()` has not
+      been called yet.
+    - `_measured`, a flag indicating whether all atoms' `distance` to bubble
+      center have been calculated.
   - Methods
     - `add_atom(atom)`, append an `Atom` instance to `Box.atoms`.
     - `measure()`, measure the distances between each atom in `Box.atoms` to the center of bubble.

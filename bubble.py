@@ -33,7 +33,7 @@ class Box(object):
         self.by = kwargs.get('by', None)
         self.bz = kwargs.get('bz', None)
         # Bubble center coordinates.
-        self.center = kwargs.get('center', None)
+        self._center = kwargs.get('center', None)
         # All atoms.
         self.atoms = []
         # Hold atoms for each element.
@@ -53,6 +53,16 @@ class Box(object):
         else:
             self._measured = False
         return self._measured
+
+    @property
+    def center(self):
+        return self._center
+
+    @center.setter
+    def center(self, coor):
+        self._center = coor
+        self._measured = False
+        self._stats_finished = False
 
     def add_atom(self, atom):
         self.atoms.append(atom)
@@ -133,6 +143,7 @@ class Box(object):
         return {'in': stress_in, 'out': stress_out}
 
     def shell_pressure_stats(self, elements, dr):
+        """Average pressure of elements inside shell."""
         if not self._stats_finished:
             self.stats(dr)
 
@@ -147,6 +158,10 @@ class Box(object):
             volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
             stress[i] = 0 - stress[i] / volume / 3
         return stress
+
+    def shell_atom_stats(self, elements, dr):
+        """Density? Atom ratio?"""
+        pass
 
     def vol_sphere(self, r):
         return 4.0/3 * Box.PI * (r ** 3)
