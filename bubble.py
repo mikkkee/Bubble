@@ -320,3 +320,25 @@ def write_ratio(ratio, dr, outname, header, bubble=True):
             low = 0 if bubble else i * dr
             high = (i + 1) * dr
             output.write('{l}\t{h}\t{r}\n'.format(l=low, h=high, r=item))
+
+
+def bubble_ratio(box, elements, out_fmt, header, dr, time, container, debug=False):
+    """Calculate bubble ratio stats and write results to disk."""
+    for ele in elements:
+        ratio = box.pressure_stats(eles, dr)
+        outname = out_fmt.format(time=timestep, ele=ele)
+        write_ratio(ratio, dr, outname, header, bubble=True)
+        if debug:
+            with open(container, 'a') as cc:
+                cc.write(outname + '\n')
+
+
+
+def shell_ratio(box, elements, out_fmt, header, dr, time, container, debug=False):
+    """Calculate shell ratio stats and write results to disk."""
+    pass
+
+
+def bubble_pressure(box, elements, out_fmt, header, dr, time, container, debug=False):
+    """Calculate bubble pressure and write results to disk."""
+    for eles in elements:

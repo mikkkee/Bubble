@@ -52,6 +52,50 @@ def main():
             box = build_box(atoms[timestep], radius=settings.MAX_RADIUS,
                 timestep=timestep, center=settings.CENTER)
 
+            if settings.BUBBLE_ATOM_RATIO_STATS_ELEMENTS:
+                bubble_ratio(box,
+                    elements=settings.BUBBLE_ATOM_RATIO_STATS_ELEMENTS,
+                    out_fmt=bubble_ratio_out, header=bubble_ratio_header,
+                    dr=settings.DR, time=timestep,container=settings.NAMES_CONTAINER,
+                    debug=settings.DEBUG)
+
+            if settings.SHELL_ATOM_RATIO_STATS_ELEMENTS:
+                shell_ratio(box,
+                    elements=settings.SHELL_ATOM_RATIO_STATS_ELEMENTS,
+                    out_fmt=shell_ratio_out, header=shell_ratio_header,
+                    dr=settings.DR, time=timestep,container=settings.NAMES_CONTAINER,
+                    debug=settings.DEBUG)
+
+            if settings.BUBBLE_PRESSURE_STATS_ELEMENTS:
+                bubble_pressure(box,
+                    elements=settings.BUBBLE_PRESSURE_STATS_ELEMENTS,
+                    out_fmt=bubble_pressure_out, header=bubble_pressure_header,
+                    dr=settings.DR, time=timestep,container=settings.NAMES_CONTAINER,
+                    debug=settings.DEBUG)
+
+            if settings.SHELL_PRESSURE_STATS_ELEMENTS:
+                shell_pressure(box,
+                    elements=settings.SHELL_PRESSURE_STATS_ELEMENTS,
+                    out_fmt=shell_pressure_out, header=shell_pressure_header,
+                    dr=settings.DR, time=timestep,container=settings.NAMES_CONTAINER,
+                    debug=settings.DEBUG)
+
+            if settings.BUBBLE_DENSITY_STATS_ELEMENTS:
+                bubble_density(box,
+                    elements=settings.BUBBLE_DENSITY_STATS_ELEMENTS,
+                    out_fmt=bubble_density_out, header=bubble_density_header,
+                    dr=settings.DENSITY_DR, time=timestep,container=settings.NAMES_CONTAINER,
+                    debug=settings.DEBUG)
+
+            if settings.SHELL_DENSITY_STATS_ELEMENTS:
+                shell_density(box,
+                    elements=settings.SHELL_DENSITY_STATS_ELEMENTS,
+                    out_fmt=shell_density_out, header=shell_density_header,
+                    dr=settings.DENSITY_DR, time=timestep,container=settings.NAMES_CONTAINER,
+                    debug=settings.DEBUG)
+
+
+
         ratio_out = 'ratio_{time}_{ele}.out'
         ratio_header = '\t'.join(['Radius', 'Atom_ratio\n'])
         bubble_pressure_output = 'bubble_pressure_{time}_{ele}.out'
