@@ -86,21 +86,6 @@ class Box(object):
             coor = np.array(atom.xyz)
             atom.distance = np.linalg.norm(coor - self.center)
 
-    def atom_stats(self, element, dr):
-        """Atom ratio stats inside bubble."""
-        if not self._stats_finished:
-            self.stats(dr)
-        nbins = len(self._shell_atoms[element])
-        bubble_atoms = {}
-        # Init bubble atoms by copying shell atoms
-        for ele, count in self._shell_atoms.iteritems():
-            bubble_atoms[ele] = [x for x in count]
-            for i in range(1, nbins):
-                bubble_atoms[ele][i] += bubble_atoms[ele][i - 1]
-            bubble_atoms[ele] = np.array(bubble_atoms[ele])
-
-        return bubble_atoms[element] / sum(bubble_atoms.values())
-
     def stats(self, dr):
         """System stats.
         Generate data for atom stats and stress stats for each element.
@@ -125,6 +110,21 @@ class Box(object):
             self._shell_atoms[ele] = np.array(self._shell_atoms[ele])
         # No need to run stats again if done for once.
         self._stats_finished = True
+
+    def atom_stats(self, element, dr):
+        """Atom ratio stats inside bubble."""
+        if not self._stats_finished:
+            self.stats(dr)
+        nbins = len(self._shell_atoms[element])
+        bubble_atoms = {}
+        # Init bubble atoms by copying shell atoms
+        for ele, count in self._shell_atoms.iteritems():
+            bubble_atoms[ele] = [x for x in count]
+            for i in range(1, nbins):
+                bubble_atoms[ele][i] += bubble_atoms[ele][i - 1]
+            bubble_atoms[ele] = np.array(bubble_atoms[ele])
+
+        return bubble_atoms[element] / sum(bubble_atoms.values())
 
     def pressure_stats(self, elements, dr):
         """Average pressure stats inside bubble for species in elements."""
@@ -151,8 +151,7 @@ class Box(object):
 
     def shell_pressure_stats(self, elements, dr):
         """Average pressure of elements inside shell."""
-        if not self._stats_finished:
-            self.stats(dr)
+        self.stats(dr)
 
         nbins = len(self._shell_stress[elements[0]])
         # Calculate stress for all element in elements as whole.
@@ -171,8 +170,8 @@ class Box(object):
         mole unit - g/cm^3
         dr unit - angstrom
         """
-        if not self._stats_finished:
-            self.stats(dr)
+        # Usually density_dr is different from stats_dr.
+        self.stats(dr)
         # Avogadro constant. Modified by coefficient used to
         # convert angstrom^3 to cm^3.
         NA = 6.022 / 10
@@ -186,17 +185,20 @@ class Box(object):
             r_high = r_low + dr
             # Volume unit is Angstrom^3.
             volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
-            count[i] = count[1] / NA / volume
+            count[i] = count[i] / NA / volume
         return count
+
+    def bubble_density(self, elements, mole, dr):
+        pass
 
     def xyz_density(self, elements, mole, dx):
         """Density distribution along x, y, and z inside box."""
         # Avogadro constant. Modified by coefficient used to
         # convert angstrom^3 to cm^3.
         NA = 6.022 / 10
-        nx = math.ceil((self.bx[1] - self.bx[0]) / dx)
-        ny = math.ceil((self.by[1] - self.by[0]) / dx)
-        nz = math.ceil((self.bz[1] - self.bz[0]) / dx)
+        nx = int(math.ceil((self.bx[1] - self.bx[0]) / dx))
+        ny = int(math.ceil((self.by[1] - self.by[0]) / dx))
+        nz = int(math.ceil((self.bz[1] - self.bz[0]) / dx))
         dist = {}
         dist['x'] = [0 for x in range(nx)]
         dist['y'] = [0 for y in range(ny)]
@@ -294,20 +296,40 @@ def write_density(density, dr, outname, header):
         output.write(header)
         for i, item in enumerate(density):
             low = i * dr
-            hight = low + dr
-            output.write('{l}\t{h}\t{d}\n'.format(l=low, h=high, d=item))
+            high = low + dr
+            output.write('{l:.3f}\t{h:.3f}\t{d:.13f}\n'.format(l=low, h=high, d=item))
 
 
 def write_pressure(pressure, dr, outname, header, bubble=False):
     """Write pressure (both bubble and shell pressure) stats to output file.
     If bubble is True, r_low is always zero.
     """
-    with open(outname, 'w') as output:
-        output.write(header)
-        for i, item in enumerate(pressure):
-            low = 0 if bubble else i * dr
-            high = (i + 1) * dr
-            output.write('{l}\t{h}\t{p}\n'.format(l=low, h=high, p=item))
+    if bubble:
+        # Bubble pressure has in pressure and out pressure.
+        with open(outname, 'w') as output:
+            output.write(header)
+            nbins = len(pressure['in'])
+            for i in range(nbins):
+                low = 0
+                high = (i + 1) * dr
+                if i < nbins - 1:
+                    output.write('{l:.3f}\t{h:.3f}\t{pin:.13f}\t{pout:.13f}\n'.format(
+                        l=low, h=high,
+                        pin=pressure['in'][i], pout=pressure['out'][i+1]
+                        ))
+                else:
+                    output.write('{l:.3f}\t{h:.3f}\t{pin:.13f}\t{pout:.13f}\n'.format(
+                        l=low, h=high,
+                        pin=pressure['in'][i], pout=0
+                        ))
+    else:
+        # Shell pressure.
+        with open(outname, 'w') as output:
+            output.write(header)
+            for i, item in enumerate(pressure):
+                low = i * dr
+                high = low + dr
+                output.write('{l:.3f}\t{h:.3f}\t{p:.13f}\n'.format(l=low, h=high, p=item))
 
 
 def write_ratio(ratio, dr, outname, header, bubble=True):
@@ -319,19 +341,25 @@ def write_ratio(ratio, dr, outname, header, bubble=True):
         for i, item in enumerate(ratio):
             low = 0 if bubble else i * dr
             high = (i + 1) * dr
-            output.write('{l}\t{h}\t{r}\n'.format(l=low, h=high, r=item))
+            output.write('{l:.3f}\t{h:.3f}\t{r:.13f}\n'.format(l=low, h=high, r=item))
 
 
 def bubble_ratio(box, elements, out_fmt, header, dr, time, container, debug=False):
     """Calculate bubble ratio stats and write results to disk."""
-    for ele in elements:
-        ratio = box.pressure_stats(eles, dr)
-        outname = out_fmt.format(time=timestep, ele=ele)
+    for eles in elements:
+        # Ratio stats for each element.
+        e = ''.join(eles)
+        print('Bubble ratio stats for {e}'.format(e=e))
+        # Calculate ratio.
+        ratio = box.atom_stats(eles[0], dr)
+        # Write to file.
+        outname = out_fmt.format(time=time, ele=e)
         write_ratio(ratio, dr, outname, header, bubble=True)
+
         if debug:
+            # For testing.
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
-
 
 
 def shell_ratio(box, elements, out_fmt, header, dr, time, container, debug=False):
@@ -342,3 +370,94 @@ def shell_ratio(box, elements, out_fmt, header, dr, time, container, debug=False
 def bubble_pressure(box, elements, out_fmt, header, dr, time, container, debug=False):
     """Calculate bubble pressure and write results to disk."""
     for eles in elements:
+        # Bubble pressure stats for each group of specified elements.
+        e = ''.join(eles)
+        print("Bubble pressure stats for {e}\n".format(e=e))
+        # Calculate bubble pressure.
+        bubble_pressure = box.pressure_stats(eles, dr)
+        # Write bubble pressure.
+        outname = out_fmt.format(time=time, ele=e)
+        write_pressure(bubble_pressure, dr, outname, header, bubble=True)
+
+        if debug:
+            # For testing.
+            with open(container, 'a') as cc:
+                cc.write(outname + '\n')
+
+
+def shell_pressure(box, elements, out_fmt, header, dr, time, container, debug=False):
+    """Calculate shell pressure and write results to disk."""
+    for eles in elements:
+        # Shell pressure stats for each group of specified elements.
+        e = ''.join(eles)
+        print('Shell pressure stats for {e}\n'.format(e=e))
+        # Shell pressure.
+        shell_pressure = box.shell_pressure_stats(eles, dr)
+        # Write to disk.
+        outname = out_fmt.format(time=time, ele=e)
+        write_pressure(shell_pressure, dr, outname, header, bubble=False)
+
+        if debug:
+            # For testing.
+            with open(container, 'a') as cc:
+                cc.write(outname + '\n')
+
+
+def bubble_density(box, elements, mole, out_fmt, header, dr, time, container, debug=False):
+    """Calculate bubble density stats and write results to disk."""
+    for eles in elements:
+        # Bubble density stats for each group of specified elements.
+        e = ''.join(eles)
+        print('Bubble density stats for {e}\n'.format(e=e))
+        # Bubble density.
+        bubble_density = box.bubble_density(eles, mole, dr)
+        # Write to disk.
+        outname = out_fmt.format(time=time, ele=e)
+        write_density(bubble_density, dr, outname, header)
+
+        if debug:
+            # For testing.
+            with open(container, 'a') as cc:
+                cc.write(outname + '\n')
+
+
+def shell_density(box, elements, mole, out_fmt, header, dr, time, container, debug=False):
+    """Calculate shell density stats and write results to disk."""
+    for eles in elements:
+        # Shell density stats for each group of specified elements.
+        e = ''.join(eles)
+        print('Shell density stats for {e}\n'.format(e=e))
+        # Shell density.
+        shell_density = box.shell_density(eles, mole, dr)
+        # Write to disk.
+        outname = out_fmt.format(time=time, ele=e)
+        write_density(shell_density, dr, outname, header)
+
+        if debug:
+            # For testing.
+            with open(container, 'a') as cc:
+                cc.write(outname + '\n')
+
+
+def xyz_density(box, elements, mole, out_fmt, header, dr, time, container, debug=False):
+    """Calculate xyz density stats and write results to disk."""
+    for eles in elements:
+        # XYZ density stats for each group of specified elements.
+        e = ''.join(eles)
+        print('XYZ density stats for {e}\n'.format(e=e))
+        # XYZ density.
+        xyz_density = box.xyz_density(eles, mole, dr)
+        # Write to disk.
+        xout = out_fmt.format(time=time, ele=e, xyz='x')
+        yout = out_fmt.format(time=time, ele=e, xyz='y')
+        zout = out_fmt.format(time=time, ele=e, xyz='z')
+
+        write_density(xyz_density['x'], dr, xout, header)
+        write_density(xyz_density['y'], dr, yout, header)
+        write_density(xyz_density['z'], dr, zout, header)
+
+        if debug:
+            # For testing.
+            with open(container, 'a') as cc:
+                out = '\n'.join([xout, yout, zout, ''])
+                cc.write(out)
