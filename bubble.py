@@ -503,5 +503,5 @@ def get_radius(box, element, dr, n=1):
     ret = []
     for i in range(-n, n + 1):
         index = min_index + i
-        ret.append((dr * (index + 1), deltas[index]))
+        ret.append((dr * (index + 1), bubble_ratio[index]))
     return ret
