@@ -7,4 +7,4 @@ cp settings_test.py settings.py
 echo -n '' > names.txt
 
 # Run by feeding test input for further testing.
-python run_sample.py
+# python run_sample.py
