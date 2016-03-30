@@ -2,23 +2,27 @@
 ############ Dump file settings #################
 #################################################
 
+# Stress files to be averaged
+AVERAGE_FILES = ['data/70_220_stress.data', 'data/70_225_stress.data',
+    'data/70_230_stress.data', 'data/70_235_stress.data', 'data/70_240_stress.data']
+
 # Path to dumpfiles.
 DUMP_PATH = ['dump/', ]
 
 # Dump file name.
-DUMP_NAME = 'stressaverage.out'
+DUMP_NAME = '7nm_500atm.out'
 
 # Number of lines for each timestep.
-NLINES = 961460
+NLINES = 655330
 #################################################
 ############## Bubble settings ##################
 #################################################
 
 # Bubble center coordinates.
-CENTER = (117.180, 120.550, 115.910)
+CENTER = (92.890, 95.180, 92.170)
 
 # Maximum bubble radius, unit - angstrom.
-MAX_RADIUS = 100
+MAX_RADIUS = 90
 
 # dr - difference of two consequent raidus - used for ratio/pressure stats
 DR = 0.2
@@ -28,9 +32,9 @@ DENSITY_DR = 5
 SHELL_PRESSURE_DR = 5
 
 # XYZ boundaries.
-BOUNDARY_X = (-1.259, 236.179)
-BOUNDARY_Y = (-1.251, 236.156)
-BOUNDARY_Z = (-1.262, 236.179)
+BOUNDARY_X = (-1.24, 191.34)
+BOUNDARY_Y = (-1.25, 191.30)
+BOUNDARY_Z = (-1.26, 191.34)
 
 
 #################################################
