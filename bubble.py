@@ -497,7 +497,7 @@ def get_radius(box, element, dr, n=1):
     n_element / n_atoms values closest to 0.5 ."""
     bubble_ratio = box.atom_stats(element, dr)
     deltas = [abs(x - 0.5) for x in bubble_ratio]
-    min_index = delta.index(min_deltas)
+    min_index = deltas.index(min_deltas)
     n = n / 2
     ret = []
     for i in range(-n, n + 1):
