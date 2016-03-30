@@ -19,7 +19,7 @@ NLINES = 655330
 #################################################
 
 # Bubble center coordinates.
-CENTER = (92.890, 95.180, 92.170)
+CENTER = (96.290, 91.916, 102.461)
 
 # Maximum bubble radius, unit - angstrom.
 MAX_RADIUS = 90
