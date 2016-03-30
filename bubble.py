@@ -278,14 +278,16 @@ def read_stress(stress_file, N=settings.NLINES):
         count += 1
     return atoms
 
-def average_atom_stress(*args, write=True):
-    """Calculates averaged stress from multiple stress files."""
+def average_atom_stress(write=True, step=0, *args):
+    """Calculates averaged stress from multiple stress files.
+    write determines whether to write output or not.
+    step determines which timestep to average."""
     n_files = float(len(args))
     stress_list = []
     for ele in args:
-        stress_list.append(read_stress(ele))
+        stress_list.append(read_stress(ele)[step])
         # Sort atoms by id.
-        stress_list.sort(key=lambda x: x.id)
+        stress_list[-1].sort(key=lambda x: x.id)
     n_atoms = len(stress_list[0])
     atoms = []
     # Average stress for each atom id.
@@ -299,7 +301,7 @@ def average_atom_stress(*args, write=True):
             )
     # Write averaged stress to file.
     if write:
-        out_name = '.'.join(args[0].split('.')[:-1]) + '_averaged.dat'
+        out_name = '.'.join(args[0].name.split('.')[:-1]) + '_averaged.dat'
         with open(out_name, 'w') as output:
             # Write header lines to be compatitable with LAMMPS dump files.
             output.write('Header line\n' * 9)
