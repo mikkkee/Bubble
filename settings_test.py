@@ -10,22 +10,22 @@ AVERAGE_FILES = ['data/70_220_stress.data', 'data/70_225_stress.data',
 DUMP_PATH = ['dump/', ]
 
 # Dump file name.
-DUMP_NAME = '7nm_500atm.out'
+DUMP_NAME = 'test_stress.out'
 
 # Number of lines for each timestep.
-NLINES = 655330
+NLINES = 14
 #################################################
 ############## Bubble settings ##################
 #################################################
 
 # Bubble center coordinates.
-CENTER = (96.290, 91.916, 102.461)
+CENTER = (0, 0, 0)
 
 # Maximum bubble radius, unit - angstrom.
-MAX_RADIUS = 90
+MAX_RADIUS = 8
 
 # dr - difference of two consequent raidus - used for ratio/pressure stats
-DR = 0.2
+DR = 0.5
 # A larger dr used for density stats.
 DENSITY_DR = 5
 # A larger dr used for shell pressure.
