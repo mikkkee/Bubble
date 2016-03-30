@@ -23,7 +23,7 @@ class Box(object):
     PI = 3.1415926
 
     def __init__(self, timestep=0, radius=None, **kwargs):
-        # Timestep of current
+        # Current timestep.
         self.timestep = timestep
         # Maximum bubble radius in box.
         self.radius = radius
@@ -36,11 +36,11 @@ class Box(object):
         self._center = kwargs.get('center', None)
         # All atoms.
         self.atoms = []
-        # Hold atoms for each element.
+        # Container of atoms for each element.
         self._elements = {}
-        # Hold shell stress for each element.
+        # Container of shell stress for each element.
         self._shell_stress = {}
-        # Hold shell atom count for each element.
+        # Container of shell atom count for each element.
         self._shell_atoms = {}
         # Indicator of stats status.
         self._stats_finished = False
@@ -48,6 +48,7 @@ class Box(object):
 
     @property
     def measured(self):
+        """Returns true if all atoms have a distance (to bubble center)."""
         if all([x.distance for x in self.atoms]):
             self._measured = True
         else:
@@ -81,7 +82,7 @@ class Box(object):
             self._elements[atom.element] = [atom]
 
     def measure(self):
-        """Measure """
+        """Measure distance to bubble center for each atom."""
         for atom in self.atoms:
             coor = np.array(atom.xyz)
             atom.distance = np.linalg.norm(coor - self.center)
@@ -252,7 +253,6 @@ def next_n_lines(file_opened, N, strip='right'):
   else:
     return list(islice(file_opened, N))
 
-
 def read_stress(stress_file, N=settings.NLINES):
     """Read dump file into a list of atoms, which have type / coordinates /
     stresses info stored as Atom properties.
@@ -278,6 +278,40 @@ def read_stress(stress_file, N=settings.NLINES):
         count += 1
     return atoms
 
+def average_atom_stress(*args, write=True):
+    """Calculates averaged stress from multiple stress files."""
+    n_files = float(len(args))
+    stress_list = []
+    for ele in args:
+        stress_list.append(read_stress(ele))
+        # Sort atoms by id.
+        stress_list.sort(key=lambda x: x.id)
+    n_atoms = len(stress_list[0])
+    atoms = []
+    # Average stress for each atom id.
+    for i in range(n_atoms):
+        sx = sum([x[i].stress[0] for x in stress_list]) / n_files
+        sy = sum([x[i].stress[1] for x in stress_list]) / n_files
+        sz = sum([x[i].stress[2] for x in stress_list]) / n_files
+        atom = stress_list[0][i]
+        atoms.append(
+            Atom(atom.id, type=atom.type, element=atom.element, xyz=atom.xyz, stress=(sx, sy, sz))
+            )
+    # Write averaged stress to file.
+    if write:
+        out_name = '.'.join(args[0].split('.')[:-1]) + '_averaged.dat'
+        with open(out_name, 'w') as output:
+            # Write header lines to be compatitable with LAMMPS dump files.
+            output.write('Header line\n' * 9)
+            for atom in atoms:
+                # Do not write element here to be compatitable with 
+                # LAMMPS dump files.
+                output.write("{} {} {} {} {} {} {} {}\n".format(
+                    atom.id, atom.type,
+                    atom.xyz[0], atom.xyz[1], atom.xyz[2],
+                    atom.stress[0], atom.stress[1], atom.stress[2]))
+        print("Average Stress saved to {}.".format(out_name))
+    return atoms
 
 def build_box(atoms, timestep, radius, center):
     """Build a box from a list of atoms."""
@@ -286,7 +320,6 @@ def build_box(atoms, timestep, radius, center):
         box.add_atom(atom)
     box.measure()
     return box
-
 
 def write_density(density, dr, outname, header):
     """Write density (both shell and xyz density) stats to output file.
@@ -298,7 +331,6 @@ def write_density(density, dr, outname, header):
             low = i * dr
             high = low + dr
             output.write('{l:.3f}\t{h:.3f}\t{d:.13f}\n'.format(l=low, h=high, d=item))
-
 
 def write_pressure(pressure, dr, outname, header, bubble=False):
     """Write pressure (both bubble and shell pressure) stats to output file.
@@ -331,7 +363,6 @@ def write_pressure(pressure, dr, outname, header, bubble=False):
                 high = low + dr
                 output.write('{l:.3f}\t{h:.3f}\t{p:.13f}\n'.format(l=low, h=high, p=item))
 
-
 def write_ratio(ratio, dr, outname, header, bubble=True):
     """Write atom ratio stats to output file.
     If bubble is True, r_low is always zero.
@@ -342,7 +373,6 @@ def write_ratio(ratio, dr, outname, header, bubble=True):
             low = 0 if bubble else i * dr
             high = (i + 1) * dr
             output.write('{l:.3f}\t{h:.3f}\t{r:.13f}\n'.format(l=low, h=high, r=item))
-
 
 def bubble_ratio(box, elements, out_fmt, header, dr, time, container, debug=False):
     """Calculate bubble ratio stats and write results to disk."""
@@ -361,11 +391,9 @@ def bubble_ratio(box, elements, out_fmt, header, dr, time, container, debug=Fals
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
 
-
 def shell_ratio(box, elements, out_fmt, header, dr, time, container, debug=False):
     """Calculate shell ratio stats and write results to disk."""
     pass
-
 
 def bubble_pressure(box, elements, out_fmt, header, dr, time, container, debug=False):
     """Calculate bubble pressure and write results to disk."""
@@ -384,7 +412,6 @@ def bubble_pressure(box, elements, out_fmt, header, dr, time, container, debug=F
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
 
-
 def shell_pressure(box, elements, out_fmt, header, dr, time, container, debug=False):
     """Calculate shell pressure and write results to disk."""
     for eles in elements:
@@ -401,7 +428,6 @@ def shell_pressure(box, elements, out_fmt, header, dr, time, container, debug=Fa
             # For testing.
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
-
 
 def bubble_density(box, elements, mole, out_fmt, header, dr, time, container, debug=False):
     """Calculate bubble density stats and write results to disk."""
@@ -420,7 +446,6 @@ def bubble_density(box, elements, mole, out_fmt, header, dr, time, container, de
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
 
-
 def shell_density(box, elements, mole, out_fmt, header, dr, time, container, debug=False):
     """Calculate shell density stats and write results to disk."""
     for eles in elements:
@@ -437,7 +462,6 @@ def shell_density(box, elements, mole, out_fmt, header, dr, time, container, deb
             # For testing.
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
-
 
 def xyz_density(box, elements, mole, out_fmt, header, dr, time, container, debug=False):
     """Calculate xyz density stats and write results to disk."""
@@ -461,3 +485,20 @@ def xyz_density(box, elements, mole, out_fmt, header, dr, time, container, debug
             with open(container, 'a') as cc:
                 out = '\n'.join([xout, yout, zout, ''])
                 cc.write(out)
+
+def get_radius(box, element, dr, n=1):
+    """Get the radius of a bubble.
+    Radius is determined to be r with closest value of n_element / n_atoms
+    to 0.5, i.e. within radius, n_element / n_atoms should be as close to 0.5 as
+    possible.
+    n specifies number of radiuses to return, i.e. n radiuses that have
+    n_element / n_atoms values closest to 0.5 ."""
+    bubble_ratio = box.atom_stats(element, dr)
+    deltas = [abs(x - 0.5) for x in bubble_ratio]
+    min_index = delta.index(min_deltas)
+    n = n / 2
+    ret = []
+    for i in range(-n, n + 1):
+        index = min_index + i
+        ret.append((dr * (index + 1), deltas[index]))
+    return ret
