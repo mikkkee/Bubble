@@ -3,8 +3,9 @@
 #################################################
 
 # Stress files to be averaged
-AVERAGE_FILES = ['data/70_220_stress.data', 'data/70_225_stress.data',
-    'data/70_230_stress.data', 'data/70_235_stress.data', 'data/70_240_stress.data']
+AVERAGE_FILES = ['data/70_410_stress.data', 'data/70_415_stress.data',
+    'data/70_420_stress.data', 'data/70_425_stress.data', 'data/70_430_stress.data']
+DRS = [1, 2, 5, 10]
 
 # Path to dumpfiles.
 DUMP_PATH = ['dump/', ]
@@ -19,7 +20,7 @@ NLINES = 655330
 #################################################
 
 # Bubble center coordinates.
-CENTER = (96.290, 91.916, 102.461)
+CENTER = (91.625, 90.173, 94.314)
 
 # Maximum bubble radius, unit - angstrom.
 MAX_RADIUS = 90
