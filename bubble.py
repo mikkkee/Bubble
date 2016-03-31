@@ -166,6 +166,18 @@ class Box(object):
             stress[i] = 0 - stress[i] / volume / 3
         return stress
 
+    def pressure_between(self, rlow, rhigh):
+        """Return the average pressure and number of atoms between rlow
+        and rhigh."""
+        stress = 0
+        count = 0
+        for atom in self.atoms:
+            if atom.distance > rlow and atom.distance <= rhigh:
+                count += 1
+                stress += sum(atom.stress)
+        volume = self.vol_sphere(rhigh) - self.vol_sphere(rlow)
+        return stress / volume / 3, count 
+
     def shell_density(self, elements, mole, dr):
         """Shell density for species inside elements.
         mole unit - g/cm^3
@@ -488,16 +500,17 @@ def xyz_density(box, elements, mole, out_fmt, header, dr, time, container, debug
                 out = '\n'.join([xout, yout, zout, ''])
                 cc.write(out)
 
-def get_radius(box, element, dr, n=1):
+def get_radius(box, element, dr, n=1, ratio=0.5):
     """Get the radius of a bubble.
     Radius is determined to be r with closest value of n_element / n_atoms
-    to 0.5, i.e. within radius, n_element / n_atoms should be as close to 0.5 as
-    possible.
+    to ratio, i.e. within radius, n_element / n_atoms should be as close to
+    ratio as possible.
     n specifies number of radiuses to return, i.e. n radiuses that have
-    n_element / n_atoms values closest to 0.5 ."""
+    n_element / n_atoms values closest to ratio."""
     bubble_ratio = box.atom_stats(element, dr)
-    deltas = [abs(x - 0.5) for x in bubble_ratio]
+    deltas = [abs(x - ratio) for x in bubble_ratio]
     # Use nanmin to ignore NaNs in ratio vector.
+    # Do not select radiuses smaller than 10 angstrom.
     min_index = deltas.index(np.nanmin(deltas))
     n = n / 2
     ret = []
