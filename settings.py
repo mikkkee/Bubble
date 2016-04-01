@@ -3,9 +3,10 @@
 #################################################
 
 # Stress files to be averaged
-AVERAGE_FILES = ['data/70_410_stress.data', 'data/70_415_stress.data',
-    'data/70_420_stress.data', 'data/70_425_stress.data', 'data/70_430_stress.data']
+AVERAGE_FILES = ['data/80_495_stress.last', 'data/80_500_stress.last',
+    'data/80_505_stress.last', 'data/80_510_stress.last', 'data/80_515_stress.last']
 DRS = [1, 2, 5, 10]
+RADIUS_RATIO = 0.15
 
 # Path to dumpfiles.
 DUMP_PATH = ['dump/', ]
@@ -14,13 +15,13 @@ DUMP_PATH = ['dump/', ]
 DUMP_NAME = '7nm_500atm.out'
 
 # Number of lines for each timestep.
-NLINES = 655330
+NLINES = 583761
 #################################################
 ############## Bubble settings ##################
 #################################################
 
 # Bubble center coordinates.
-CENTER = (91.625, 90.173, 94.314)
+CENTER = (92.189, 95.474, 86.945)
 
 # Maximum bubble radius, unit - angstrom.
 MAX_RADIUS = 90

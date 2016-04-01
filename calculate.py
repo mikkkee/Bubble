@@ -14,10 +14,10 @@ def main(argv):
         stress_inputs.append(open(ele, 'r'))
     atoms = average_atom_stress(True, 0, *stress_inputs)
 
-    box = Box(radius=70, center=settings.CENTER)
+    box = Box(radius=80, center=settings.CENTER)
     for atom in atoms: box.add_atom(atom)
     box.measure()
-    r_ratio = get_radius(box, 'Ne', 0.5, n=5, ratio=0.15)
+    r_ratio = get_radius(box, 'Ne', 0.5, n=5, ratio=settings.RADIUS_RATIO)
 
     with open('radius.txt', 'w') as radius_output:
         for ele in r_ratio:
