@@ -2,6 +2,10 @@
 ############ Dump file settings #################
 #################################################
 
+# Stress files to be averaged
+AVERAGE_FILES = ['data/70_220_stress.data', 'data/70_225_stress.data',
+    'data/70_230_stress.data', 'data/70_235_stress.data', 'data/70_240_stress.data']
+
 # Path to dumpfiles.
 DUMP_PATH = ['dump/', ]
 
@@ -10,7 +14,6 @@ DUMP_NAME = 'test_stress.out'
 
 # Number of lines for each timestep.
 NLINES = 14
-
 #################################################
 ############## Bubble settings ##################
 #################################################
@@ -21,14 +24,22 @@ CENTER = (0, 0, 0)
 # Maximum bubble radius, unit - angstrom.
 MAX_RADIUS = 8
 
-# dr - difference of two consequent raidus - used for stats
+# dr - difference of two consequent raidus - used for ratio/pressure stats
 DR = 0.5
+# A larger dr used for density stats.
+DENSITY_DR = 5
+# A larger dr used for shell pressure.
+SHELL_PRESSURE_DR = 5
+
+# XYZ boundaries.
+BOUNDARY_X = (-1.24, 191.34)
+BOUNDARY_Y = (-1.25, 191.30)
+BOUNDARY_Z = (-1.26, 191.34)
 
 
 #################################################
 ################# Atom settings #################
 #################################################
-
 
 # Atom elements to corresponding types.
 ELEMENTS = {
@@ -37,18 +48,40 @@ ELEMENTS = {
     3: 'H',
 }
 
-# Element to be used in atom stats.
-ATOM_STATS_ELEMENTS = ['Ne', ]
+# TODO: Average mole weight for each group of elements.
 
-# Elements to be used in pressure stats.
+
+#################################################
+############## Calculation settings #############
+#################################################
+
+# Perform bubble atom ratio stats on following element species.
+BUBBLE_ATOM_RATIO_STATS_ELEMENTS = [['Ne'], ]
+
+# TODO: shell pressure stats.
+SHELL_ATOM_RATIO_STATS_ELEMENTS = []
+
+# Perform bubble pressure stats on following element species.
 # In / out bubble pressure are output for each group of atoms.
-PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ]
+BUBBLE_PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ['Ne', 'H', 'O'], ]
+
+# Perform shell pressure stats on following element species.
+SHELL_PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ['Ne', 'H', 'O'], ]
+
+# TODO: bubble density stats.
+BUBBLE_DENSITY_STATS_ELEMENTS = []
+
+# Perform shell density stats on following element species.
+SHELL_DENSITY_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ]
+
+# Perform xyz density stats on following element species.
+XYZ_DENSITY_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ]
 
 #################################################
 ############### Debug settings ##################
 #################################################
 
-# Do not change.
+# Keep DEBUG value to False when using.
 DEBUG = True
 
 # File name of container for test run output file names.

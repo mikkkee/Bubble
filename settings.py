@@ -3,8 +3,10 @@
 #################################################
 
 # Stress files to be averaged
-AVERAGE_FILES = ['data/70_220_stress.data', 'data/70_225_stress.data',
-    'data/70_230_stress.data', 'data/70_235_stress.data', 'data/70_240_stress.data']
+AVERAGE_FILES = ['data/80_495_stress.last', 'data/80_500_stress.last',
+    'data/80_505_stress.last', 'data/80_510_stress.last', 'data/80_515_stress.last']
+DRS = [1, 2, 5, 10]
+RADIUS_RATIO = 0.15
 
 # dr used to detect good shell pressure inside / outside radius.
 DRS = [1, 2, 5, 10]
@@ -16,13 +18,13 @@ DUMP_PATH = ['dump/', ]
 DUMP_NAME = '7nm_500atm.out'
 
 # Number of lines for each timestep.
-NLINES = 655330
+NLINES = 583761
 #################################################
 ############## Bubble settings ##################
 #################################################
 
 # Bubble center coordinates.
-CENTER = (96.290, 91.916, 102.461)
+CENTER = (92.189, 95.474, 86.945)
 
 # Maximum bubble radius, unit - angstrom.
 MAX_RADIUS = 90
