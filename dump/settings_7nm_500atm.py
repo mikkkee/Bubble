@@ -2,13 +2,6 @@
 ############ Dump file settings #################
 #################################################
 
-# Stress files to be averaged
-AVERAGE_FILES = ['data/70_220_stress.data', 'data/70_225_stress.data',
-    'data/70_230_stress.data', 'data/70_235_stress.data', 'data/70_240_stress.data']
-
-# dr used to detect good shell pressure inside / outside radius.
-DRS = [1, 2, 5, 10]
-
 # Path to dumpfiles.
 DUMP_PATH = ['dump/', ]
 
@@ -22,7 +15,7 @@ NLINES = 655330
 #################################################
 
 # Bubble center coordinates.
-CENTER = (96.290, 91.916, 102.461)
+CENTER = (92.890, 95.180, 92.170)
 
 # Maximum bubble radius, unit - angstrom.
 MAX_RADIUS = 90
@@ -30,7 +23,7 @@ MAX_RADIUS = 90
 # dr - difference of two consequent raidus - used for ratio/pressure stats
 DR = 0.2
 # A larger dr used for density stats.
-DENSITY_DR = 5
+DENSITY_DR = 0.2
 # A larger dr used for shell pressure.
 SHELL_PRESSURE_DR = 5
 
