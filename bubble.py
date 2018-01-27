@@ -17,6 +17,11 @@ class Atom(object):
         self.stress = kwargs.get('stress', None)
         self.normal = kwargs.get('normal', False)
         self.distance = None
+        self.sin_theta = None
+        self.cos_theta = None
+        self.sin_phi   = None
+        self.cos_phi   = None
+        self.spherical_stress = None
 
     def calc_spherical_stress(self):
         """
@@ -52,7 +57,7 @@ class Box(object):
         self.timestep = timestep
         # Maximum bubble radius in box.
         self.radius = radius
-        self.count = 0
+        self.count  = 0
         # XYZ boundaries.
         self.bx = kwargs.get('bx', None)
         self.by = kwargs.get('by', None)
@@ -64,15 +69,15 @@ class Box(object):
         # Container of atoms for each element.
         self._elements = {}
         # Container of shell stress for each element.
-        self._shell_stress = {}
-        self._shell_stress_r = {}
+        self._shell_stress       = {}
+        self._shell_stress_r     = {}
         self._shell_stress_theta = {}
-        self._shell_stress_phi = { }
+        self._shell_stress_phi   = { }
         # Container of shell atom count for each element.
         self._shell_atoms = {}
         # Indicator of stats status.
         self._stats_finished = False
-        self._measured = False
+        self._measured       = False
 
     @property
     def measured(self):
@@ -89,8 +94,8 @@ class Box(object):
 
     @center.setter
     def center(self, coor):
-        self._center = coor
-        self._measured = False
+        self._center         = coor
+        self._measured       = False
         self._stats_finished = False
 
     def set_boundary(self, bx, by, bz):
@@ -130,7 +135,8 @@ class Box(object):
                 atom.cos_phi   = dx / xy_square
 
     def stats(self, dr):
-        """System stats.
+        """
+        System stats.
         Generate data for atom stats and stress stats for each element.
         self._shell_atoms = {}
         self._shell_stress = {}
@@ -139,6 +145,7 @@ class Box(object):
             raise AtomUnmeasuredError("Some atoms are unmeasuerd")
         nbins = int(math.ceil(self.radius / float(dr)))
 
+        normal = False
         for ele, atoms in self._elements.iteritems():
             # Do stats for each element.
             self._shell_stress[ele] = [0.0 for x in range(nbins)]
@@ -150,6 +157,7 @@ class Box(object):
                         # Only consider atoms inside maximum bubble.
                         self._shell_stress[ele][int(atom.distance / dr)] += sum(atom.stress)
                     else:
+                        normal = True
                         # normal pressure, need to calculate from Cartesian tensor to Spherical tensor
                         atom.calc_spherical_stress()
 
@@ -165,8 +173,8 @@ class Box(object):
             # Convert shell stats to numpy.Array.
             self._shell_stress[ele] = np.array(self._shell_stress[ele])
             self._shell_atoms[ele] = np.array(self._shell_atoms[ele])
-            if atom.normal:
-                self._shell_stress_r[ele] = np.array(self._shell_stress_r[ele])
+            if normal:
+                self._shell_stress_r[ele]     = np.array(self._shell_stress_r[ele])
                 self._shell_stress_theta[ele] = np.array(self._shell_stress_theta[ele])
                 self._shell_stress_phi[ ele ] = np.array( self._shell_stress_phi[ ele ] )
         # No need to run stats again if done for once.
@@ -195,7 +203,7 @@ class Box(object):
         nbins = len(self._shell_stress[elements[0]])
         # Calculate stress for all element in elements as whole.
         # Convert numpy.Array to mutable list.
-        stress_in = [x for x in sum([self._shell_stress[ele] for ele in elements])]
+        stress_in  = [x for x in sum([self._shell_stress[ele] for ele in elements])]
         stress_out = [x for x in stress_in]
         for i in range(1, nbins):
             # Cumulative stress.
@@ -212,7 +220,6 @@ class Box(object):
 
     def shell_pressure_stats(self, elements, dr, normal=False):
         """Average pressure of elements inside shell."""
-        print("dddddrrrr: {}".format(dr))
         self.stats(dr)
 
         nbins = len(self._shell_stress[elements[0]])
@@ -312,11 +319,9 @@ class Box(object):
             dist['z'][i] = dist['z'][i] / NA / volz
         return dist
 
-
     def vol_sphere(self, r):
         """Volume of sphere with radius r."""
         return 4.0/3 * Box.PI * (r ** 3)
-
 
 
 #################################################
@@ -374,6 +379,7 @@ def read_stress(stress_file, N=settings.NLINES, normalPressure=False):
         count += 1
     return atoms
 
+
 def average_atom_stress(write=True, step=0, *args):
     """Calculates averaged stress from multiple stress files.
     write determines whether to write output or not.
@@ -411,6 +417,7 @@ def average_atom_stress(write=True, step=0, *args):
         print("Average Stress saved to {}.".format(out_name))
     return atoms
 
+
 def build_box(atoms, timestep, radius, center):
     """Build a box from a list of atoms."""
     box = Box(timestep, radius=radius, center=center)
@@ -418,6 +425,7 @@ def build_box(atoms, timestep, radius, center):
         box.add_atom(atom)
     box.measure()
     return box
+
 
 def write_density(density, dr, outname, header):
     """Write density (both shell and xyz density) stats to output file.
@@ -429,6 +437,7 @@ def write_density(density, dr, outname, header):
             low = i * dr
             high = low + dr
             output.write('{l:.3f}\t{h:.3f}\t{d:.13f}\n'.format(l=low, h=high, d=item))
+
 
 def write_pressure(pressure, dr, outname, header, bubble=False):
     """Write pressure (both bubble and shell pressure) stats to output file.
@@ -461,6 +470,7 @@ def write_pressure(pressure, dr, outname, header, bubble=False):
                 high = low + dr
                 output.write('{l:.3f}\t{h:.3f}\t{p:.13f}\n'.format(l=low, h=high, p=item))
 
+
 def write_ratio(ratio, dr, outname, header, bubble=True):
     """Write atom ratio stats to output file.
     If bubble is True, r_low is always zero.
@@ -471,6 +481,7 @@ def write_ratio(ratio, dr, outname, header, bubble=True):
             low = 0 if bubble else i * dr
             high = (i + 1) * dr
             output.write('{l:.3f}\t{h:.3f}\t{r:.13f}\n'.format(l=low, h=high, r=item))
+
 
 def bubble_ratio(box, elements, out_fmt, header, dr, time, container, debug=False):
     """Calculate bubble ratio stats and write results to disk."""
@@ -489,9 +500,11 @@ def bubble_ratio(box, elements, out_fmt, header, dr, time, container, debug=Fals
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
 
+
 def shell_ratio(box, elements, out_fmt, header, dr, time, container, debug=False):
     """Calculate shell ratio stats and write results to disk."""
     pass
+
 
 def bubble_pressure(box, elements, out_fmt, header, dr, time, container, debug=False):
     """Calculate bubble pressure and write results to disk."""
@@ -509,6 +522,7 @@ def bubble_pressure(box, elements, out_fmt, header, dr, time, container, debug=F
             # For testing.
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
+
 
 def shell_pressure(box, elements, out_fmt, header, dr, time, container, normal=False, debug=False):
     """Calculate shell pressure and write results to disk."""
@@ -561,6 +575,7 @@ def bubble_density(box, elements, mole, out_fmt, header, dr, time, container, de
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
 
+
 def shell_density(box, elements, mole, out_fmt, header, dr, time, container, debug=False):
     """Calculate shell density stats and write results to disk."""
     for eles in elements:
@@ -577,6 +592,7 @@ def shell_density(box, elements, mole, out_fmt, header, dr, time, container, deb
             # For testing.
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
+
 
 def xyz_density(box, elements, mole, out_fmt, header, dr, time, container, debug=False):
     """Calculate xyz density stats and write results to disk."""
@@ -600,6 +616,7 @@ def xyz_density(box, elements, mole, out_fmt, header, dr, time, container, debug
             with open(container, 'a') as cc:
                 out = '\n'.join([xout, yout, zout, ''])
                 cc.write(out)
+
 
 def get_radius(box, element, dr, n=1, ratio=0.5):
     """Get the radius of a bubble.
