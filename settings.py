@@ -12,34 +12,38 @@ RADIUS_RATIO = 0.15
 DRS = [1, 2, 5, 10]
 
 # Path to dumpfiles.
-DUMP_PATH = ['dump/', ]
+DUMP_PATH = ['dump_normal/', ]
 
 # Dump file name.
-DUMP_NAME = '7nm_500atm.out'
+DUMP_NAME = 'laststep_all_tenors.out'
 
 # Number of lines for each timestep.
-NLINES = 583761
+NLINES = 920863
+
+# Are we calculating normal pressure?
+NORMAL = True
+
 #################################################
 ############## Bubble settings ##################
 #################################################
 
 # Bubble center coordinates.
-CENTER = (92.189, 95.474, 86.945)
+CENTER = (113.140,    120.240,    115.840)
 
 # Maximum bubble radius, unit - angstrom.
 MAX_RADIUS = 90
 
 # dr - difference of two consequent raidus - used for ratio/pressure stats
-DR = 0.2
+DR = 5
 # A larger dr used for density stats.
 DENSITY_DR = 5
 # A larger dr used for shell pressure.
 SHELL_PRESSURE_DR = 5
 
 # XYZ boundaries.
-BOUNDARY_X = (-1.24, 191.34)
-BOUNDARY_Y = (-1.25, 191.30)
-BOUNDARY_Z = (-1.26, 191.34)
+BOUNDARY_X = (-1.24819, 218.308 )
+BOUNDARY_Y = (-1.26819, 218.268 )
+BOUNDARY_Z = (-1.26819, 218.248)
 
 
 #################################################

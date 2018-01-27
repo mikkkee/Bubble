@@ -15,7 +15,32 @@ class Atom(object):
         self.element = kwargs.get('element', None)
         self.xyz = kwargs.get('xyz', None)
         self.stress = kwargs.get('stress', None)
+        self.normal = kwargs.get('normal', False)
         self.distance = None
+
+    def calc_spherical_stress(self):
+        """
+        Calculate spherical stress tensor from cartesian one
+        ref: http://www.brown.edu/Departments/Engineering/Courses/En221/Notes/Polar_Coords/Polar_Coords.htm
+        """
+        xx, yy, zz, xy, xz, yz = self.stress
+        cart = np.array( [ [xx, xy, xz], [xy, yy, yz], [xz, yz, zz] ] )
+
+        # 1 for theta, the angle between xyz and z axis, 2 for phi, 
+        # angle between x axis and the projection on xy-plane
+        sin1 = self.sin_theta
+        cos1 = self.cos_theta
+        sin2 = self.sin_phi
+        cos2 = self.cos_phi
+
+        conv = np.array( [ [sin1*cos2, cos1*cos2, -sin2],
+                           [sin1*sin2, cos1*sin2, -cos2],
+                           [cos1,      -sin1,     0], ] )
+
+        sphe = np.dot( conv, cart.dot( np.transpose(conv) ) )
+
+        # Of format [ [rr, rTheta, rPhi], [rTheta, thetaTheta, thetaPhi], [rPhi, thetaPhi, phiPhi] ]
+        self.spherical_stress = sphe
 
 
 class Box(object):
@@ -40,6 +65,9 @@ class Box(object):
         self._elements = {}
         # Container of shell stress for each element.
         self._shell_stress = {}
+        self._shell_stress_r = {}
+        self._shell_stress_theta = {}
+        self._shell_stress_phi = { }
         # Container of shell atom count for each element.
         self._shell_atoms = {}
         # Indicator of stats status.
@@ -87,6 +115,20 @@ class Box(object):
             coor = np.array(atom.xyz)
             atom.distance = np.linalg.norm(coor - self.center)
 
+            if atom.normal:
+                # Calculate sin cos for theta and phi
+                dx = coor[0] - self.center[0]
+                dy = coor[1] - self.center[1]
+                dz = coor[2] - self.center[2]
+
+                xy_square = math.sqrt(dx*dx + dy*dy)
+
+                atom.sin_theta = xy_square / atom.distance
+                atom.cos_theta = dz / atom.distance
+
+                atom.sin_phi   = dy / xy_square
+                atom.cos_phi   = dx / xy_square
+
     def stats(self, dr):
         """System stats.
         Generate data for atom stats and stress stats for each element.
@@ -103,12 +145,30 @@ class Box(object):
             self._shell_atoms[ele] = [0.0 for x in range(nbins)]
             for atom in atoms:
                 if atom.distance < self.radius:
-                    # Only consider atoms inside maximum bubble.
-                    self._shell_stress[ele][int(atom.distance / dr)] += sum(atom.stress)
+                    if not atom.normal:
+                        # xyz pressure, just sum xx yy zz
+                        # Only consider atoms inside maximum bubble.
+                        self._shell_stress[ele][int(atom.distance / dr)] += sum(atom.stress)
+                    else:
+                        # normal pressure, need to calculate from Cartesian tensor to Spherical tensor
+                        atom.calc_spherical_stress()
+
+                        self._shell_stress_r.setdefault( ele, [0.0 for _x in range(nbins)] )
+                        self._shell_stress_theta.setdefault( ele, [ 0.0 for _x in range( nbins ) ] )
+                        self._shell_stress_phi.setdefault( ele, [ 0.0 for _x in range( nbins ) ] )
+
+                        self._shell_stress[ele][int(atom.distance / dr)]       += atom.spherical_stress[0][0]
+                        self._shell_stress_r[ele][int(atom.distance / dr)]     += atom.spherical_stress[0][0]
+                        self._shell_stress_theta[ele][int(atom.distance / dr)] += atom.spherical_stress[1][1]
+                        self._shell_stress_phi[ele][int(atom.distance / dr)]   += atom.spherical_stress[2][2]
                     self._shell_atoms[ele][int(atom.distance / dr)] += 1
             # Convert shell stats to numpy.Array.
             self._shell_stress[ele] = np.array(self._shell_stress[ele])
             self._shell_atoms[ele] = np.array(self._shell_atoms[ele])
+            if atom.normal:
+                self._shell_stress_r[ele] = np.array(self._shell_stress_r[ele])
+                self._shell_stress_theta[ele] = np.array(self._shell_stress_theta[ele])
+                self._shell_stress_phi[ ele ] = np.array( self._shell_stress_phi[ ele ] )
         # No need to run stats again if done for once.
         self._stats_finished = True
 
@@ -150,21 +210,38 @@ class Box(object):
         stress_out[nbins - 1] = 0 - stress_out[nbins - 1] / (self.vol_sphere(self.radius) - self.vol_sphere((nbins - 1)*dr)) / 3
         return {'in': stress_in, 'out': stress_out}
 
-    def shell_pressure_stats(self, elements, dr):
+    def shell_pressure_stats(self, elements, dr, normal=False):
         """Average pressure of elements inside shell."""
+        print("dddddrrrr: {}".format(dr))
         self.stats(dr)
 
         nbins = len(self._shell_stress[elements[0]])
+        print( "NNNNNumber of bins: {}".format(nbins) )
         # Calculate stress for all element in elements as whole.
         # Convert numpy.Array to mutable list.
-        stress = [x for x in sum([self._shell_stress[ele] for ele in elements])]
-        # Calculate pressure.
-        for i in range(nbins):
-            r_low = i * dr
-            r_high = (i + 1) * dr
-            volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
-            stress[i] = 0 - stress[i] / volume / 3
-        return stress
+        if not normal:
+            stress = [x for x in sum( self._shell_stress[ele] for ele in elements )]
+            # Calculate pressure.
+            for i in range(nbins):
+                r_low = i * dr
+                r_high = (i + 1) * dr
+                volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
+                stress[i] = 0 - stress[i] / volume / 3
+            return stress
+        else:
+            # Normal and tangent pressure
+            print( "Shell pressure norm keys {}".format( ','.join( self._shell_stress_r.keys() ) ) )
+            stress_r     = [x for x in sum( self._shell_stress_r[ele] for ele in elements )]
+            stress_theta = [x for x in sum( self._shell_stress_theta[ele] for ele in elements )]
+            stress_phi   = [ x for x in sum( self._shell_stress_theta[ ele ] for ele in elements ) ]
+            for i in range(nbins):
+                r_low  = i * dr
+                r_high = (i + 1) * dr
+                volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
+                stress_r[i]     = 0 - stress_r[i] / volume
+                stress_theta[i] = 0 - stress_theta[i] / volume
+                stress_phi[i]   = 0 - stress_phi[i] / volume
+            return stress_r, stress_theta, stress_phi
 
     def pressure_between(self, rlow, rhigh):
         """Return the average pressure and number of atoms between rlow
@@ -265,8 +342,10 @@ def next_n_lines(file_opened, N, strip='right'):
   else:
     return list(islice(file_opened, N))
 
-def read_stress(stress_file, N=settings.NLINES):
-    """Read dump file into a list of atoms, which have type / coordinates /
+
+def read_stress(stress_file, N=settings.NLINES, normalPressure=False):
+    """
+    Read dump file into a list of atoms, which have type / coordinates /
     stresses info stored as Atom properties.
     Dump file data format:
     atom_id atom_type x y z stress_x stress_y stress_z
@@ -277,13 +356,18 @@ def read_stress(stress_file, N=settings.NLINES):
     while data:
         atoms[count] = []
         for line in data:
-            line = line.split()
+            line = line.strip().split()
             identifier = int(line[0])
             atom_type = int(line[1])
             element = settings.ELEMENTS[atom_type]
             xyz = tuple([float(x) for x in line[2:5]])
-            stress = tuple([float(x) for x in line[5:8]])
-            atom = Atom(identifier, type=atom_type, element=element, xyz=xyz, stress=stress)
+            if normalPressure:
+                # To calculate normal pressure, we need xx, yy, zz, xy, xz, yz
+                stress = tuple([float(x) for x in line[5:11]])
+            else:
+                # To calculate pressure, we need xx, yy, zz
+                stress = tuple([float(x) for x in line[5:8]])
+            atom = Atom(identifier, type=atom_type, element=element, xyz=xyz, stress=stress, normal=normalPressure)
             atoms[count].append(atom)
         # Process next N lines.
         data = next_n_lines(stress_file, N)[9:]
@@ -426,22 +510,39 @@ def bubble_pressure(box, elements, out_fmt, header, dr, time, container, debug=F
             with open(container, 'a') as cc:
                 cc.write(outname + '\n')
 
-def shell_pressure(box, elements, out_fmt, header, dr, time, container, debug=False):
+def shell_pressure(box, elements, out_fmt, header, dr, time, container, normal=False, debug=False):
     """Calculate shell pressure and write results to disk."""
     for eles in elements:
         # Shell pressure stats for each group of specified elements.
         e = ''.join(eles)
         print('Shell pressure stats for {e}\n'.format(e=e))
         # Shell pressure.
-        shell_pressure = box.shell_pressure_stats(eles, dr)
-        # Write to disk.
-        outname = out_fmt.format(time=time, ele=e)
-        write_pressure(shell_pressure, dr, outname, header, bubble=False)
+        if not normal:
+            shell_pressure = box.shell_pressure_stats(eles, dr, normal=normal)
+            # Write to disk.
+            outname = out_fmt.format(time=time, ele=e)
+            write_pressure(shell_pressure, dr, outname, header, bubble=False)
+            if debug:
+                # For testing.
+                with open(container, 'a') as cc:
+                    cc.write(outname + '\n')
+        else:
+            shell_r, shell_theta, shell_phi = box.shell_pressure_stats(eles, dr, normal=normal)
+            # Write to disk.
+            outname1 = out_fmt.format(time=time, ele=e) + '_r'
+            outname2 = out_fmt.format(time=time, ele=e) + '_theta'
+            outname3 = out_fmt.format( time=time, ele=e ) + '_phi'
+            write_pressure(shell_r, dr, outname1, header, bubble=False)
+            write_pressure(shell_theta, dr, outname2, header, bubble=False)
+            write_pressure( shell_phi, dr, outname3, header, bubble=False )
 
-        if debug:
-            # For testing.
-            with open(container, 'a') as cc:
-                cc.write(outname + '\n')
+            if debug:
+                # For testing.
+                with open(container, 'a') as cc:
+                    cc.write( outname1 + '\n' )
+                    cc.write( outname2 + '\n' )
+                    cc.write( outname3 + '\n' )
+
 
 def bubble_density(box, elements, mole, out_fmt, header, dr, time, container, debug=False):
     """Calculate bubble density stats and write results to disk."""
