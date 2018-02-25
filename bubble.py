@@ -1,8 +1,12 @@
 from __future__ import print_function
 import math
 import string
-from itertools import islice
+from itertools import islice, product
 import numpy as np
+import MDAnalysis as md
+import pandas as pd
+import scipy
+import time
 
 import settings
 
@@ -322,6 +326,98 @@ class Box(object):
     def vol_sphere(self, r):
         """Volume of sphere with radius r."""
         return 4.0/3 * Box.PI * (r ** 3)
+
+
+class Trajectory( object ):
+    '''Gas molecule trajectory class'''
+    def __init__( self, pdbPath, xtcPath ):
+        self.universe = md.Universe( pdbPath, xtcPath )
+        self.set_density_params()
+
+    @property
+    def n_frames( self ):
+        return self.universe.trajectory.n_frames
+
+    @property
+    def frame( self ):
+        return self.universe.trajectory.frame
+
+    def set_density_params(self, low=0.4, high=0.5, length=60 ):
+        '''
+        Generate grid with length of dnesity_grid_length at x,y,z directions.
+        Grids whose density are between low * max_density and high * max_density
+        will be used for radius calculation. d
+        '''
+        self.density_low  = low
+        self.density_high = high
+        self.density_grid_length = length
+
+    def set_frame( self, frame ):
+        self.universe.trajectory[ frame ]
+
+    def radius( self, frame ):
+        '''
+        Bubble radius at one frame.
+        Method:
+        1. Load the snapshot at frame
+        2. Load x, y, z coordinates 
+        3. Calculate density grid mesh at grid points
+        4. Filter the shell grids with density between low * max density and high * max density
+        5. Calculate the average radius
+        '''
+        start = time.clock()
+
+        self.set_frame( frame )
+
+        # Load x, y, z coordinates
+        data = pd.DataFrame( list(self.universe.coord), columns=['x','y','z'])
+        x    = data[ 'x' ].values
+        y    = data[ 'y' ].values
+        z    = data[ 'z' ].values
+
+        # Density grid
+        xyz  = scipy.vstack( [ x, y, z ] )
+        kde  = scipy.stats.gaussian_kde( xyz )
+        xmin, ymin, zmin = x.min(), y.min(), z.min()
+        xmax, ymax, zmax = x.max(), y.max(), z.max()
+        NI         = complex( imag=self.density_grid_length)
+        xi, yi, zi = scipy.mgrid[ xmin:xmax:NI, ymin:ymax:NI, zmin:zmax:NI ]
+        coords     = scipy.vstack([item.ravel() for item in [xi, yi, zi]])
+        density    = kde(coords).reshape(xi.shape)
+
+        # Filter density grid
+        density_max  = density.max()
+        density_low  = self.density_low * density_max
+        density_high = self.density_high * density_max
+
+        xyzs = []
+        N = self.density_grid_length
+        for idx, idy, idz in product( xrange(N), xrange(N), xrange(N) ):
+            if density_low < density[ idx, idy, idz ] <= density_high:
+                xyzs.append( [ xi[ idx, idy, idz ], yi[ idx, idy, idz ], zi[ idx, idy, idz ] ] )
+        xyzs = np.array( xyzs )
+
+        # Average radius
+        center = xyzs.mean( axis=0 )
+        rs = []
+        for xyz_ele in xyzs:
+            rs.append( np.linalg.norm( center - xyz_ele ) )
+
+        duration = time.clock() - start
+        print( "Radius for frame {} calculated in {:.2f} seconds".format( frame, duration ) )
+
+        return scipy.mean( rs )
+
+    def radius_for_frames( self, start, end, step=1 ):
+        ret = []
+        for frame in xrange( start, end, step ):
+            radius = self.radius( frame )
+            ret.append( [ frame, radius ] )
+        return ret
+
+    def all_radius( self ):
+        return self.radius_for_frames( 0, self.n_frames, 1 )
+
 
 
 #################################################
