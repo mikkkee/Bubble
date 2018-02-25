@@ -2,6 +2,8 @@
 ############ Dump file settings #################
 #################################################
 
+DO_PRESSURE = False
+
 # Stress files to be averaged
 AVERAGE_FILES = ['data/80_495_stress.last', 'data/80_500_stress.last',
     'data/80_505_stress.last', 'data/80_510_stress.last', 'data/80_515_stress.last']
@@ -22,6 +24,23 @@ NLINES = 920863
 
 # Are we calculating normal pressure?
 NORMAL = True
+
+
+###################################################################
+############## GROMACS trajectory input settings ##################
+###################################################################
+
+# We need a pdb and xtc file to get the trajectory info
+TRAJECTORY_PATH = 'trj/'
+PDB_NAMES = [ 'gas70.pdb' ]
+XTC_NAMES = [ 'gas70.xtc' ]
+
+RADIUS_OUTDATA_PATH = ''
+RADIUS_OUTIMG_PATH  = ''
+
+# Calculate radius every DN frames
+RADIUS_DN = 10
+
 
 #################################################
 ############## Bubble settings ##################

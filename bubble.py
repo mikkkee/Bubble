@@ -6,6 +6,7 @@ import numpy as np
 import MDAnalysis as md
 import pandas as pd
 import scipy
+import scipy.stats
 import time
 
 import settings
