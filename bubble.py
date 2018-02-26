@@ -1,12 +1,14 @@
-from __future__ import print_function
-import math
-import string
-from itertools import islice, product
-import numpy as np
+from   __future__ import print_function
+from   itertools import islice, product
 import MDAnalysis as md
+import math
+import numpy as np
 import pandas as pd
+import plotly
+import plotly.graph_objs as go
 import scipy
 import scipy.stats
+import string
 import time
 
 import settings
@@ -418,6 +420,49 @@ class Trajectory( object ):
 
     def all_radius( self ):
         return self.radius_for_frames( 0, self.n_frames, 1 )
+
+    def regression( self, radiusList ):
+        ''' Input (frame, radius) lists and do linear regression on the data '''
+        ts = [ ele[0] for ele in radiusList ]
+        rs = [ ele[1] for ele in radiusList ]
+        slope, intercept, r_value, p_value, std_err = scipy.stats.linregress( ts, rs )
+        return slope, intercept, r_value, p_value, std_err
+
+    def plot( self, rs ):
+        ''' plot dots and linear regression results '''
+
+        xs = [ ele[0] for ele in rs ]
+        ys = [ ele[1] for ele in rs ]
+
+        x_min = min( xs )
+        x_max = max( xs )
+        x_min = x_min - ( x_max - x_min ) * 0.05
+        x_max = x_max + ( x_max - x_min ) * 0.05
+
+        slope, intercept, r_value, p_value, std_err = self.regression( rs )
+
+        xs_line = [ x_min ] + xs + [ x_max ]
+        ys_line = [ ele * slope + intercept for ele in xs_line ]
+
+        # Scatter plot
+        scatter = go.Scatter(
+            x = [ele[0] for ele in rs],
+            y = [ele[1] for ele in rs],
+            mode = 'markers',
+            name = 'Radius'
+            )
+
+        reg_line = go.Scatter(
+            x = xs_line, y = ys_line,
+            mode='lines', name='y={:.4f}x+{:.4f}, p-value={:.2f}, StdErr={:.3f}'.format(slope, intercept, p_value, std_err)
+            )
+
+        data = go.Data([scatter, reg_line])
+        plotly.offline.plot( {
+            'data': data,
+            'layout': go.Layout( title='Radius vs Frame', xaxis={'title':'Frame'}, yaxis={'title':'Radius'} )
+            } )
+
 
 
 

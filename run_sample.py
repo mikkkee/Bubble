@@ -33,18 +33,20 @@ def radius_analysis( settings ):
             for frame, radius in rs:
                 rsout.write( '{} {}'.format(frame, radius) )
 
-        # Plot image
-        trace = go.Scatter(
-            x = [ele[0] for ele in rs],
-            y = [ele[1] for ele in rs],
-            mode = 'lines'
-        )
+        traj.plot(rs)
 
-        data = go.Data([trace])
-        plotly.offline.plot( {
-            'data': data,
-            'layout': go.Layout( title='Radius vs Frame for ' + pdb_base )
-            } )
+        # # Plot image
+        # trace = go.Scatter(
+        #     x = [ele[0] for ele in rs],
+        #     y = [ele[1] for ele in rs],
+        #     mode = 'lines'
+        # )
+
+        # data = go.Data([trace])
+        # plotly.offline.plot( {
+        #     'data': data,
+        #     'layout': go.Layout( title='Radius vs Frame for ' + pdb_base )
+        #     } )
 
 
 def shell_analysis(box, timestep, base_path, settings):
