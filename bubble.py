@@ -409,12 +409,12 @@ class Trajectory( object ):
         duration = time.clock() - start
         print( "Radius for frame {} calculated in {:.2f} seconds".format( frame, duration ) )
 
-        return scipy.mean( rs )
+        return center, scipy.mean( rs )
 
     def radius_for_frames( self, start, end, step=1 ):
         ret = []
         for frame in xrange( start, end, step ):
-            radius = self.radius( frame )
+            center, radius = self.radius( frame )
             ret.append( [ frame, radius ] )
         return ret
 
@@ -428,7 +428,7 @@ class Trajectory( object ):
         slope, intercept, r_value, p_value, std_err = scipy.stats.linregress( ts, rs )
         return slope, intercept, r_value, p_value, std_err
 
-    def plot( self, rs ):
+    def plot_radius( self, rs ):
         ''' plot dots and linear regression results '''
 
         xs = [ ele[0] for ele in rs ]
@@ -463,7 +463,24 @@ class Trajectory( object ):
             'layout': go.Layout( title='Radius vs Frame', xaxis={'title':'Frame'}, yaxis={'title':'Radius'} )
             } )
 
+    def flux_info( self, start, end, step=1 ):
+        '''
+        Flux info for frames [start:end:step]. Info are, for each step,
+        nframe, center, radius, n atoms inside sphere
+        '''
+        info = []
+        for nframe in xrange( start, end, step ):
+            center, radius = self.radius( nframe )
 
+            # Selector for AtomGroup in MDAnalysis
+            selector = 'point ' + ' '.join( str( ele ) for ele in list( center ) + [ radius ] )
+
+            # Explicitly set frame here
+            self.set_frame( nframe )
+            atoms = self.universe.select_atoms( selector )
+            natoms = atoms.n_atoms
+            info.append( (nframe, center, radius, natoms) )
+        return info
 
 
 #################################################
