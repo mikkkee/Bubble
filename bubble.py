@@ -85,6 +85,8 @@ class Box(object):
         # Indicator of stats status.
         self._stats_finished = False
         self._measured       = False
+        # Dump atom coordinates to calculate voro tessellation volume
+        self.voro_file_name = 'atom_coors'
 
     @property
     def measured(self):
@@ -104,6 +106,35 @@ class Box(object):
         self._center         = coor
         self._measured       = False
         self._stats_finished = False
+
+    def dump_atoms_for_voro( self ):
+        '''
+        Dump atom coordinates so we can calculate Voronoi tessellation using Voro++
+        from http://math.lbl.gov/voro++/
+        The input file format for voro++ is
+        <atom id> <x> <y> <z>
+        and output file format is 
+        <atom id> <x> <y> <z> <tessellation volume>
+        '''
+        fmt = '{} {} {} {}\n'
+        with open( self.voro_file_name, 'w' ) as output:
+            for idx, atom in enumerate( self.atoms ):
+                x, y, z = atom.xyz
+                output.write( fmt.format( idx, x, y, z ) )
+
+    def voro_cmd( gnuplot=False ):
+        '''
+        CMD to run voro++ in bash
+        gnuplot=True will also export gnu plot file. Be careful when system is large as
+        this file will be extremely large
+        '''
+        fmt = 'voro++ {opts} {{xmin}} {{xmax}} {{ymin}} {{ymax}} {{zmin}} {{zmax}} {{input}}'
+        opts = '-g' if gnuplot else ''
+        return fmt.format( opts=opts )
+
+    def calc_voro_volumes( self ):
+        ''' Calculate voro tessellation volume using voro '''
+        self.dump_atoms_for_voro()
 
     def set_boundary(self, bx, by, bz):
         """Set bx by bz together."""
@@ -428,7 +459,7 @@ class Trajectory( object ):
         slope, intercept, r_value, p_value, std_err = scipy.stats.linregress( ts, rs )
         return slope, intercept, r_value, p_value, std_err
 
-    def plot_radius( self, rs ):
+    def plot_radius( self, rs, notebook=False ):
         ''' plot dots and linear regression results '''
 
         xs = [ ele[0] for ele in rs ]
@@ -458,7 +489,10 @@ class Trajectory( object ):
             )
 
         data = go.Data([scatter, reg_line])
-        plotly.offline.plot( {
+
+        plot = plotly.offline.iplot if notebook else plotly.offline.plot
+
+        plot( {
             'data': data,
             'layout': go.Layout( title='Radius vs Frame', xaxis={'title':'Frame'}, yaxis={'title':'Radius'} )
             } )
