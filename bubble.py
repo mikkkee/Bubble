@@ -62,7 +62,7 @@ class Box(object):
 
     PI = 3.1415926
 
-    def __init__(self, timestep=0, radius=None, use_atomic_volume=True**kwargs):
+    def __init__(self, timestep=0, radius=None, use_atomic_volume=True, **kwargs):
         # Current timestep.
         self.timestep = timestep
         # Maximum bubble radius in box.
@@ -308,7 +308,7 @@ class Box(object):
                     volume    = self.vol_sphere(r_high) - self.vol_sphere(r_low)
                     stress[i] = 0 - stress[i] / volume / 3
                 else:
-                    stress[i] = 0 - stress[i]
+                    stress[i] = 0 - stress[i] / 3
             return stress
         else:
             # Normal and tangent pressure
