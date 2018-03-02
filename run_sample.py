@@ -145,7 +145,7 @@ def bubble_analysis(box, timestep, base_path, settings):
 def main():
 
     # Change default logging level
-    logging.basicConfig(leval=logging.INFO)
+    logging.basicConfig(level=logging.INFO)
 
     radius_analysis( settings )
 

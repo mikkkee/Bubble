@@ -1,11 +1,13 @@
 from   __future__ import print_function
 from   itertools import islice, product
+import logging
 import MDAnalysis as md
 import math
 import numpy as np
 import pandas as pd
 import plotly
 import plotly.graph_objs as go
+import subprocess
 import scipy
 import scipy.stats
 import string
@@ -29,6 +31,7 @@ class Atom(object):
         self.sin_phi   = None
         self.cos_phi   = None
         self.spherical_stress = None
+        self.tessellation_volume = 0
 
     def calc_spherical_stress(self):
         """
@@ -116,25 +119,52 @@ class Box(object):
         and output file format is 
         <atom id> <x> <y> <z> <tessellation volume>
         '''
+        logging.info( 'Dump atom coordinates to {}'.format( self.voro_file_name ) )
         fmt = '{} {} {} {}\n'
         with open( self.voro_file_name, 'w' ) as output:
-            for idx, atom in enumerate( self.atoms ):
+            for atom in self.atoms:
                 x, y, z = atom.xyz
-                output.write( fmt.format( idx, x, y, z ) )
+                output.write( fmt.format( atom.id, x, y, z ) )
 
-    def voro_cmd( gnuplot=False ):
+    def voro_cmd( self, gnuplot=False ):
         '''
         CMD to run voro++ in bash
         gnuplot=True will also export gnu plot file. Be careful when system is large as
         this file will be extremely large
+        default to use -o to preserve the atom order. This has small memory and performance
+        impact as the documentation says.
         '''
-        fmt = 'voro++ {opts} {{xmin}} {{xmax}} {{ymin}} {{ymax}} {{zmin}} {{zmax}} {{input}}'
+        fmt = 'voro++ -o {opts} {{xmin}} {{xmax}} {{ymin}} {{ymax}} {{zmin}} {{zmax}} {{infile}}'
         opts = '-g' if gnuplot else ''
-        return fmt.format( opts=opts )
+
+        fmt = fmt.format( opts=opts )
+        return fmt.format( xmin=self.bx[0], xmax=self.bx[1],
+                           ymin=self.by[0], ymax=self.by[1],
+                           zmin=self.bz[0], zmax=self.bz[1],
+                           infile=self.voro_file_name)
+
+    def run_voro_cmd( self ):
+        logging.info( 'Calculating voro volumes for atoms' )
+        subprocess.call( self.voro_cmd(), shell=True )
+
+    def read_voro_volumes( self ):
+        voro_out = self.voro_file_name + '.vol'
+        logging.info( 'Reading voro volumes from {}'.format( voro_out ) )
+        with open( voro_out, 'r' ) as volumes:
+            idx = 0
+            for line in volumes:
+                atom_id, x, y, z, vol = [ float(ele) for ele in line.split() ]
+                atom_id = int( atom_id )
+                atom = self.atoms[ idx ]
+                assert( atom.id == atom_id )
+                atom.tessellation_volume = vol
+                idx += 1
 
     def calc_voro_volumes( self ):
         ''' Calculate voro tessellation volume using voro '''
         self.dump_atoms_for_voro()
+        self.run_voro_cmd()
+        self.read_voro_volumes()
 
     def set_boundary(self, bx, by, bz):
         """Set bx by bz together."""
