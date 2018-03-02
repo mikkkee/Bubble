@@ -111,7 +111,7 @@ class Box(object):
         self._measured       = False
         self._stats_finished = False
 
-    def dump_atoms_for_voro( self ):
+    def dump_atoms_for_voro( self, length=None ):
         '''
         Dump atom coordinates so we can calculate Voronoi tessellation using Voro++
         from http://math.lbl.gov/voro++/
@@ -122,12 +122,21 @@ class Box(object):
         '''
         logging.info( 'Dump atom coordinates to {}'.format( self.voro_file_name ) )
         fmt = '{} {} {} {}\n'
+        if length:
+            xmin, xmax = self.center[0] - length, self.center[0] + length
+            ymin, ymax = self.center[1] - length, self.center[1] + length
+            zmin, zmax = self.center[2] - length, self.center[2] + length
+
         with open( self.voro_file_name, 'w' ) as output:
             for atom in self.atoms:
                 x, y, z = atom.xyz
-                output.write( fmt.format( atom.id, x, y, z ) )
+                if length:
+                    if xmin <= x <= xmax and ymin<= y <= ymax and zmin <= z <= zmax:
+                        output.write( fmt.format( atom.id, x, y, z ) )
+                else:
+                    output.write( fmt.format( atom.id, x, y, z ) )
 
-    def voro_cmd( self, gnuplot=False ):
+    def voro_cmd( self, gnuplot=False, length=None ):
         '''
         CMD to run voro++ in bash
         gnuplot=True will also export gnu plot file. Be careful when system is large as
@@ -135,18 +144,31 @@ class Box(object):
         default to use -o to preserve the atom order. This has small memory and performance
         impact as the documentation says.
         '''
-        fmt = 'voro++ -o {opts} {{xmin}} {{xmax}} {{ymin}} {{ymax}} {{zmin}} {{zmax}} {{infile}}'
+
+        # when have length -o will not work
+        cmd = 'voro++' if length else 'voro++ -g'
+        fmt = cmd + ' {opts} {{xmin}} {{xmax}} {{ymin}} {{ymax}} {{zmin}} {{zmax}} {{infile}}'
         opts = '-g' if gnuplot else ''
 
         fmt = fmt.format( opts=opts )
-        return fmt.format( xmin=self.bx[0], xmax=self.bx[1],
-                           ymin=self.by[0], ymax=self.by[1],
-                           zmin=self.bz[0], zmax=self.bz[1],
+
+        if length:
+            xmin, xmax = self.center[0] - length, self.center[0] + length
+            ymin, ymax = self.center[1] - length, self.center[1] + length
+            zmin, zmax = self.center[2] - length, self.center[2] + length
+        else:
+            xmin, xmax = self.bx
+            ymin, ymax = self.by
+            zmin, zmax = self.bz
+
+        return fmt.format( xmin=xmin, xmax=xmax,
+                           ymin=ymin, ymax=ymax,
+                           zmin=zmin, zmax=zmax,
                            infile=self.voro_file_name)
 
-    def run_voro_cmd( self ):
+    def run_voro_cmd( self, gnuplot=False, length=None ):
         logging.info( 'Calculating voro volumes for atoms' )
-        subprocess.call( self.voro_cmd(), shell=True )
+        subprocess.call( self.voro_cmd( gnuplot=gnuplot, length=length ), shell=True )
 
     def read_voro_volumes( self ):
         voro_out = self.voro_file_name + '.vol'
@@ -161,11 +183,12 @@ class Box(object):
                 atom.voro_volume = vol
                 idx += 1
 
-    def calc_voro_volumes( self ):
+    def calc_voro_volumes( self, gnuplot=False, length=None ):
         ''' Calculate voro tessellation volume using voro '''
-        self.dump_atoms_for_voro()
-        self.run_voro_cmd()
-        self.read_voro_volumes()
+        self.dump_atoms_for_voro( length=length )
+        self.run_voro_cmd( gnuplot=gnuplot, length=length )
+        if not length:
+            self.read_voro_volumes()
 
     def set_boundary(self, bx, by, bz):
         """Set bx by bz together."""
@@ -213,6 +236,9 @@ class Box(object):
         if not self.measured:
             raise AtomUnmeasuredError("Some atoms are unmeasuerd")
         nbins = int(math.ceil(self.radius / float(dr)))
+
+        if self.use_atomic_volume:
+            self.calc_voro_volumes()
 
         normal = False
         for ele, atoms in self._elements.iteritems():
@@ -304,7 +330,7 @@ class Box(object):
             for i in range(nbins):
                 r_low = i * dr
                 r_high = (i + 1) * dr
-                if not selt.use_atomic_volume:
+                if not self.use_atomic_volume:
                     volume    = self.vol_sphere(r_high) - self.vol_sphere(r_low)
                     stress[i] = 0 - stress[i] / volume / 3
                 else:

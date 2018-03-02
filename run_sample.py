@@ -33,7 +33,7 @@ def radius_analysis( settings ):
             for frame, radius in rs:
                 rsout.write( '{} {}'.format(frame, radius) )
 
-        traj.plot_radius(rs)
+        traj.plot_radius(rs, notebook=settings.DO_RADIUS_IN_NOTEBOOK)
 
 
 def shell_analysis(box, timestep, base_path, settings):
@@ -147,7 +147,8 @@ def main():
     # Change default logging level
     logging.basicConfig(level=logging.INFO)
 
-    radius_analysis( settings )
+    if settings.DO_RADIUS:
+        radius_analysis( settings )
 
     if settings.DO_PRESSURE:
         # Do pressure analysis

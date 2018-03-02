@@ -2,7 +2,12 @@
 ############ Dump file settings #################
 #################################################
 
-DO_PRESSURE = False
+# Do radius calculation?
+DO_RADIUS   = False
+# Plot in Jupyter notebook?
+DO_RADIUS_IN_NOTEBOOK = True
+
+DO_PRESSURE = True
 USE_ATOMIC_VOL  = True
 
 # Stress files to be averaged
@@ -24,7 +29,7 @@ DUMP_NAME = 'laststep_all_tenors.out'
 NLINES = 920863
 
 # Are we calculating normal pressure?
-NORMAL = True
+NORMAL = False
 
 
 ###################################################################
