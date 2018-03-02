@@ -3,6 +3,7 @@
 #################################################
 
 DO_PRESSURE = False
+USE_ATOMIC_VOL  = True
 
 # Stress files to be averaged
 AVERAGE_FILES = ['data/80_495_stress.last', 'data/80_500_stress.last',

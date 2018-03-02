@@ -165,7 +165,8 @@ def main():
 
             for timestep in atoms.keys():
                 # Run requested stats for each timestep.
-                box = build_box( atoms[timestep], radius=settings.MAX_RADIUS, timestep=timestep, center=settings.CENTER)
+                box = build_box(atoms[timestep], radius=settings.MAX_RADIUS, timestep=timestep,
+                    center=settings.CENTER, use_atomic_volume=settings.USE_ATOMIC_VOL)
                 box.set_boundary( bx=settings.BOUNDARY_X, by=settings.BOUNDARY_Y, bz=settings.BOUNDARY_Z )
 
                 shell_analysis( box, timestep, base_path, settings )

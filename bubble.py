@@ -31,7 +31,7 @@ class Atom(object):
         self.sin_phi   = None
         self.cos_phi   = None
         self.spherical_stress = None
-        self.tessellation_volume = 0
+        self.voro_volume = 0
 
     def calc_spherical_stress(self):
         """
@@ -62,7 +62,7 @@ class Box(object):
 
     PI = 3.1415926
 
-    def __init__(self, timestep=0, radius=None, **kwargs):
+    def __init__(self, timestep=0, radius=None, use_atomic_volume=True**kwargs):
         # Current timestep.
         self.timestep = timestep
         # Maximum bubble radius in box.
@@ -90,6 +90,7 @@ class Box(object):
         self._measured       = False
         # Dump atom coordinates to calculate voro tessellation volume
         self.voro_file_name = 'atom_coors'
+        self.use_atomic_volume  = use_atomic_volume
 
     @property
     def measured(self):
@@ -157,7 +158,7 @@ class Box(object):
                 atom_id = int( atom_id )
                 atom = self.atoms[ idx ]
                 assert( atom.id == atom_id )
-                atom.tessellation_volume = vol
+                atom.voro_volume = vol
                 idx += 1
 
     def calc_voro_volumes( self ):
@@ -219,11 +220,14 @@ class Box(object):
             self._shell_stress[ele] = [0.0 for x in range(nbins)]
             self._shell_atoms[ele] = [0.0 for x in range(nbins)]
             for atom in atoms:
+                # By default stress is pressure * volume, whether one wants to calc pressure
+                # based on atomic volume or not
+                factor = 1.0 if not self.use_atomic_volume else  1./atom.voro_volume
                 if atom.distance < self.radius:
                     if not atom.normal:
                         # xyz pressure, just sum xx yy zz
                         # Only consider atoms inside maximum bubble.
-                        self._shell_stress[ele][int(atom.distance / dr)] += sum(atom.stress)
+                        self._shell_stress[ele][int(atom.distance / dr)] += sum(atom.stress) * factor
                     else:
                         normal = True
                         # normal pressure, need to calculate from Cartesian tensor to Spherical tensor
@@ -233,10 +237,10 @@ class Box(object):
                         self._shell_stress_theta.setdefault( ele, [ 0.0 for _x in range( nbins ) ] )
                         self._shell_stress_phi.setdefault( ele, [ 0.0 for _x in range( nbins ) ] )
 
-                        self._shell_stress[ele][int(atom.distance / dr)]       += atom.spherical_stress[0][0]
-                        self._shell_stress_r[ele][int(atom.distance / dr)]     += atom.spherical_stress[0][0]
-                        self._shell_stress_theta[ele][int(atom.distance / dr)] += atom.spherical_stress[1][1]
-                        self._shell_stress_phi[ele][int(atom.distance / dr)]   += atom.spherical_stress[2][2]
+                        self._shell_stress[ele][int(atom.distance / dr)]       += atom.spherical_stress[0][0] * factor
+                        self._shell_stress_r[ele][int(atom.distance / dr)]     += atom.spherical_stress[0][0] * factor
+                        self._shell_stress_theta[ele][int(atom.distance / dr)] += atom.spherical_stress[1][1] * factor
+                        self._shell_stress_phi[ele][int(atom.distance / dr)]   += atom.spherical_stress[2][2] * factor
                     self._shell_atoms[ele][int(atom.distance / dr)] += 1
             # Convert shell stats to numpy.Array.
             self._shell_stress[ele] = np.array(self._shell_stress[ele])
@@ -300,8 +304,11 @@ class Box(object):
             for i in range(nbins):
                 r_low = i * dr
                 r_high = (i + 1) * dr
-                volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
-                stress[i] = 0 - stress[i] / volume / 3
+                if not selt.use_atomic_volume:
+                    volume    = self.vol_sphere(r_high) - self.vol_sphere(r_low)
+                    stress[i] = 0 - stress[i] / volume / 3
+                else:
+                    stress[i] = 0 - stress[i]
             return stress
         else:
             # Normal and tangent pressure
@@ -312,10 +319,15 @@ class Box(object):
             for i in range(nbins):
                 r_low  = i * dr
                 r_high = (i + 1) * dr
-                volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
-                stress_r[i]     = 0 - stress_r[i] / volume
-                stress_theta[i] = 0 - stress_theta[i] / volume
-                stress_phi[i]   = 0 - stress_phi[i] / volume
+                if not self.use_atomic_volume:
+                    volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
+                    stress_r[i]     = 0 - stress_r[i] / volume
+                    stress_theta[i] = 0 - stress_theta[i] / volume
+                    stress_phi[i]   = 0 - stress_phi[i] / volume
+                else:
+                    stress_r[i]     = 0 - stress_r[i]
+                    stress_theta[i] = 0 - stress_theta[i]
+                    stress_phi[i]   = 0 - stress_phi[i]
             return stress_r, stress_theta, stress_phi
 
     def pressure_between(self, rlow, rhigh):
@@ -641,9 +653,9 @@ def average_atom_stress(write=True, step=0, *args):
     return atoms
 
 
-def build_box(atoms, timestep, radius, center):
+def build_box(atoms, timestep, radius, center, use_atomic_volume):
     """Build a box from a list of atoms."""
-    box = Box(timestep, radius=radius, center=center)
+    box = Box(timestep, radius=radius, center=center, use_atomic_volume=use_atomic_volume)
     for atom in atoms:
         box.add_atom(atom)
     box.measure()
