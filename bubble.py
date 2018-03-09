@@ -85,6 +85,8 @@ class Box(object):
         self._shell_stress_phi   = { }
         # Container of shell atom count for each element.
         self._shell_atoms = {}
+        self._shell_atom_objs = {}
+        self._shell_volumes = {}
         # Indicator of stats status.
         self._stats_finished = False
         self._measured       = False
@@ -146,7 +148,7 @@ class Box(object):
         '''
 
         # when have length -o will not work
-        cmd = 'voro++' if length else 'voro++ -g'
+        cmd = 'voro++' if length else 'voro++ -o'
         fmt = cmd + ' {opts} {{xmin}} {{xmax}} {{ymin}} {{ymax}} {{zmin}} {{zmax}} {{infile}}'
         opts = '-g' if gnuplot else ''
 
@@ -168,7 +170,16 @@ class Box(object):
 
     def run_voro_cmd( self, gnuplot=False, length=None ):
         logging.info( 'Calculating voro volumes for atoms' )
-        subprocess.call( self.voro_cmd( gnuplot=gnuplot, length=length ), shell=True )
+        cmd = self.voro_cmd( gnuplot=gnuplot, length=length )
+
+        logging.info( "Running: {}".format( cmd ))
+
+        sp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        out, err = sp.communicate()
+        if err:
+            raise Exception(err)
+
+        logging.info( "Finished: {}".format( cmd ) )
 
     def read_voro_volumes( self ):
         voro_out = self.voro_file_name + '.vol'
@@ -226,6 +237,9 @@ class Box(object):
                 atom.sin_phi   = dy / xy_square
                 atom.cos_phi   = dx / xy_square
 
+        if self.use_atomic_volume:
+            self.calc_voro_volumes()
+
     def stats(self, dr):
         """
         System stats.
@@ -237,18 +251,18 @@ class Box(object):
             raise AtomUnmeasuredError("Some atoms are unmeasuerd")
         nbins = int(math.ceil(self.radius / float(dr)))
 
-        if self.use_atomic_volume:
-            self.calc_voro_volumes()
-
         normal = False
         for ele, atoms in self._elements.iteritems():
             # Do stats for each element.
             self._shell_stress[ele] = [0.0 for x in range(nbins)]
             self._shell_atoms[ele] = [0.0 for x in range(nbins)]
+            self._shell_atom_objs[ ele ]=[[] for x in range(nbins)]
+            self._shell_volumes[ele] = [ 0.0 for x in range(nbins) ]
             for atom in atoms:
                 # By default stress is pressure * volume, whether one wants to calc pressure
                 # based on atomic volume or not
                 factor = 1.0 if not self.use_atomic_volume else  1./atom.voro_volume
+                #factor = 1.0
                 if atom.distance < self.radius:
                     if not atom.normal:
                         # xyz pressure, just sum xx yy zz
@@ -268,9 +282,14 @@ class Box(object):
                         self._shell_stress_theta[ele][int(atom.distance / dr)] += atom.spherical_stress[1][1] * factor
                         self._shell_stress_phi[ele][int(atom.distance / dr)]   += atom.spherical_stress[2][2] * factor
                     self._shell_atoms[ele][int(atom.distance / dr)] += 1
+                    self._shell_atom_objs[ele][int(atom.distance / dr)].append(atom)
+                    if self.use_atomic_volume:
+                        self._shell_volumes[ele][int(atom.distance / dr)] += atom.voro_volume
             # Convert shell stats to numpy.Array.
             self._shell_stress[ele] = np.array(self._shell_stress[ele])
             self._shell_atoms[ele] = np.array(self._shell_atoms[ele])
+            self._shell_volumes[ele] = np.array(self._shell_volumes[ele])
+
             if normal:
                 self._shell_stress_r[ele]     = np.array(self._shell_stress_r[ele])
                 self._shell_stress_theta[ele] = np.array(self._shell_stress_theta[ele])
@@ -325,16 +344,31 @@ class Box(object):
         # Calculate stress for all element in elements as whole.
         # Convert numpy.Array to mutable list.
         if not normal:
-            stress = [x for x in sum( self._shell_stress[ele] for ele in elements )]
+
+            if self.use_atomic_volume:
+                # Average stress = total stress / number of atoms                
+                stress_raw = [ x for x in sum( self._shell_stress[ele] for ele in elements ) ]
+                n_atoms    = [ x for x in sum( self._shell_atoms[ele] for ele in elements ) ]
+                stress     = []
+                for ele1, ele2 in zip( stress_raw, n_atoms ):
+                    if ele2 == 0:
+                        stress.append( 0 )
+                    else:
+                        stress.append( ele1 / ele2 )
+            else:
+                # Do not use atomic volume, sum all stress and divide by total volume
+                stress = [x for x in sum( self._shell_stress[ele] for ele in elements)]
+
             # Calculate pressure.
             for i in range(nbins):
-                r_low = i * dr
+                r_low  = i * dr
                 r_high = (i + 1) * dr
-                if not self.use_atomic_volume:
+                if self.use_atomic_volume:
+                    stress[i] = 0 - stress[i] / 3
+                else:
                     volume    = self.vol_sphere(r_high) - self.vol_sphere(r_low)
                     stress[i] = 0 - stress[i] / volume / 3
-                else:
-                    stress[i] = 0 - stress[i] / 3
+
             return stress
         else:
             # Normal and tangent pressure
@@ -351,9 +385,10 @@ class Box(object):
                     stress_theta[i] = 0 - stress_theta[i] / volume
                     stress_phi[i]   = 0 - stress_phi[i] / volume
                 else:
-                    stress_r[i]     = 0 - stress_r[i]
-                    stress_theta[i] = 0 - stress_theta[i]
-                    stress_phi[i]   = 0 - stress_phi[i]
+                    volume = self._shell_volumes[ i ]
+                    stress_r[i]     = 0 - stress_r[i] / volume 
+                    stress_theta[i] = 0 - stress_theta[i] / volume 
+                    stress_phi[i]   = 0 - stress_phi[i] / volume
             return stress_r, stress_theta, stress_phi
 
     def pressure_between(self, rlow, rhigh):
@@ -679,11 +714,12 @@ def average_atom_stress(write=True, step=0, *args):
     return atoms
 
 
-def build_box(atoms, timestep, radius, center, use_atomic_volume):
+def build_box(atoms, timestep, radius, center, use_atomic_volume, bx, by, bz):
     """Build a box from a list of atoms."""
     box = Box(timestep, radius=radius, center=center, use_atomic_volume=use_atomic_volume)
     for atom in atoms:
         box.add_atom(atom)
+    box.set_boundary(bx=bx, by=by, bz=by)
     box.measure()
     return box
 
@@ -704,6 +740,7 @@ def write_pressure(pressure, dr, outname, header, bubble=False):
     """Write pressure (both bubble and shell pressure) stats to output file.
     If bubble is True, r_low is always zero.
     """
+    logging.info( "Writing output to {}".format(outname) )
     if bubble:
         # Bubble pressure has in pressure and out pressure.
         with open(outname, 'w') as output:

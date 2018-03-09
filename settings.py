@@ -8,7 +8,9 @@ DO_RADIUS   = False
 DO_RADIUS_IN_NOTEBOOK = True
 
 DO_PRESSURE = True
+# Use atomic vol instead of shell vol for pressure calculation?
 USE_ATOMIC_VOL  = True
+
 
 # Stress files to be averaged
 AVERAGE_FILES = ['data/80_495_stress.last', 'data/80_500_stress.last',
@@ -20,10 +22,11 @@ RADIUS_RATIO = 0.15
 DRS = [1, 2, 5, 10]
 
 # Path to dumpfiles.
-DUMP_PATH = ['dump_normal/', ]
+DUMP_PATH = ['dump_20180303/', ]
 
 # Dump file name.
-DUMP_NAME = 'laststep_all_tenors.out'
+# DUMP_NAME = 'laststep_all_tenors.out'
+DUMP_NAME = 'laststep.out'
 
 # Number of lines for each timestep.
 NLINES = 920863
@@ -56,7 +59,7 @@ RADIUS_DN = 10
 CENTER = (113.140,    120.240,    115.840)
 
 # Maximum bubble radius, unit - angstrom.
-MAX_RADIUS = 90
+MAX_RADIUS = 100
 
 # dr - difference of two consequent raidus - used for ratio/pressure stats
 DR = 5

@@ -148,15 +148,16 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     if settings.DO_RADIUS:
+        logging.info("Doing radius analysis")
         radius_analysis( settings )
 
     if settings.DO_PRESSURE:
-        # Do pressure analysis
         for base_path in settings.DUMP_PATH:
+
             stress_file = os.path.join(base_path, settings.DUMP_NAME)
+            start = time.clock()
 
             # Read atoms from stress_file.
-            start = time.clock()
             with open(stress_file, 'r') as stress_file_opened:
                 logging.info( "Reading stress file %s", stress_file )
                 atoms = read_stress(stress_file_opened, settings.NLINES, settings.NORMAL)
@@ -166,9 +167,11 @@ def main():
 
             for timestep in atoms.keys():
                 # Run requested stats for each timestep.
+                logging.info( "Pressure analysis for timestep {}".format( timestep ) )
+
                 box = build_box(atoms[timestep], radius=settings.MAX_RADIUS, timestep=timestep,
-                    center=settings.CENTER, use_atomic_volume=settings.USE_ATOMIC_VOL)
-                box.set_boundary( bx=settings.BOUNDARY_X, by=settings.BOUNDARY_Y, bz=settings.BOUNDARY_Z )
+                    center=settings.CENTER, use_atomic_volume=settings.USE_ATOMIC_VOL,
+                    bx=settings.BOUNDARY_X, by=settings.BOUNDARY_Y, bz=settings.BOUNDARY_Z )
 
                 shell_analysis( box, timestep, base_path, settings )
                 bubble_analysis( box, timestep, base_path, settings )
