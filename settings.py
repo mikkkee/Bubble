@@ -26,7 +26,7 @@ DUMP_PATH = ['dump_20180303/', ]
 
 # Dump file name.
 # DUMP_NAME = 'laststep_all_tenors.out'
-DUMP_NAME = 'laststep.out'
+DUMP_NAME = 'laststep_ke_pair_1.out'
 
 # Number of lines for each timestep.
 NLINES = 920863
