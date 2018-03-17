@@ -168,6 +168,7 @@ def main():
             for timestep in atoms.keys():
                 # Run requested stats for each timestep.
                 logging.info( "Pressure analysis for timestep {}".format( timestep ) )
+                logging.info( "Pressure analysis for timestep {}".format( timestep ) )
 
                 box = build_box(atoms[timestep], radius=settings.MAX_RADIUS, timestep=timestep,
                     center=settings.CENTER, use_atomic_volume=settings.USE_ATOMIC_VOL,

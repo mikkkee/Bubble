@@ -1,43 +1,61 @@
 #################################################
-############ Dump file settings #################
+############ Calculation settings ###############
 #################################################
 
 # Do radius calculation?
 DO_RADIUS   = False
-# Plot in Jupyter notebook?
+# Plot radius results in Jupyter notebook?
 DO_RADIUS_IN_NOTEBOOK = True
 
-DO_PRESSURE = True
+
+DO_PRESSURE     = True
 # Use atomic vol instead of shell vol for pressure calculation?
 USE_ATOMIC_VOL  = False
 # average on atom or sum atomic volumes together, used only when USE_ATOMIC_VOL=True
 AVERAGE_ON_ATOM = False
 # Combine H2O molecules into a single particle
-COMBINE_WATER = True
+COMBINE_WATER   = True
+# Are we calculating normal pressure?
+NORMAL          = True
 
 
-# Stress files to be averaged
-AVERAGE_FILES = ['data/80_495_stress.last', 'data/80_500_stress.last',
-    'data/80_505_stress.last', 'data/80_510_stress.last', 'data/80_515_stress.last']
-DRS = [1, 2, 5, 10]
-RADIUS_RATIO = 0.15
+#################################################
+############## input settings ###################
+#################################################
 
-# dr used to detect good shell pressure inside / outside radius.
-DRS = [1, 2, 5, 10]
-
-# Path to dumpfiles.
+# Path to input stress files.
 DUMP_PATH = ['dump_20180303/', ]
 
-# Dump file name.
+# input stress file name.
 # DUMP_NAME = 'laststep_all_tenors.out'
 # DUMP_NAME = 'laststep_ke_pair_all_tensors.out'
-DUMP_NAME = 'laststep_ke_pair_1.out'
+DUMP_NAME = 'laststep_all_tensors.out'
 
 # Number of lines for each timestep.
 NLINES = 920863
 
-# Are we calculating normal pressure?
-NORMAL = False
+
+#################################################
+############## Bubble settings ##################
+#################################################
+
+# Bubble center coordinates.
+CENTER = (113.140,    120.240,    115.840)
+
+# Maximum bubble radius, unit - angstrom.
+MAX_RADIUS = 200
+
+# dr - difference of two consequent raidus - used for ratio/pressure stats
+DR = 5
+# A larger dr used for density stats.
+DENSITY_DR = 5
+# A larger dr used for shell pressure.
+SHELL_PRESSURE_DR = 5
+
+# XYZ boundaries.
+BOUNDARY_X = (-1.24819, 218.308 )
+BOUNDARY_Y = (-1.26819, 218.268 )
+BOUNDARY_Z = (-1.26819, 218.248)
 
 
 ###################################################################
@@ -54,29 +72,6 @@ RADIUS_OUTIMG_PATH  = ''
 
 # Calculate radius every DN frames
 RADIUS_DN = 10
-
-
-#################################################
-############## Bubble settings ##################
-#################################################
-
-# Bubble center coordinates.
-CENTER = (113.140,    120.240,    115.840)
-
-# Maximum bubble radius, unit - angstrom.
-MAX_RADIUS = 100
-
-# dr - difference of two consequent raidus - used for ratio/pressure stats
-DR = 5
-# A larger dr used for density stats.
-DENSITY_DR = 5
-# A larger dr used for shell pressure.
-SHELL_PRESSURE_DR = 5
-
-# XYZ boundaries.
-BOUNDARY_X = (-1.24819, 218.308 )
-BOUNDARY_Y = (-1.26819, 218.268 )
-BOUNDARY_Z = (-1.26819, 218.248)
 
 
 #################################################

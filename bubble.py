@@ -118,7 +118,6 @@ class Box(object):
     def combine_water_atoms(self):
         """
         Combine H and O together into a new particle
-        volume = V_h + V_o
         stress = S_h + S_o
         coor   = center of mass
         The sequency of H and O atoms are O H H
