@@ -9,7 +9,11 @@ DO_RADIUS_IN_NOTEBOOK = True
 
 DO_PRESSURE = True
 # Use atomic vol instead of shell vol for pressure calculation?
-USE_ATOMIC_VOL  = True
+USE_ATOMIC_VOL  = False
+# average on atom or sum atomic volumes together, used only when USE_ATOMIC_VOL=True
+AVERAGE_ON_ATOM = False
+# Combine H2O molecules into a single particle
+COMBINE_WATER = True
 
 
 # Stress files to be averaged
@@ -26,6 +30,7 @@ DUMP_PATH = ['dump_20180303/', ]
 
 # Dump file name.
 # DUMP_NAME = 'laststep_all_tenors.out'
+# DUMP_NAME = 'laststep_ke_pair_all_tensors.out'
 DUMP_NAME = 'laststep_ke_pair_1.out'
 
 # Number of lines for each timestep.
@@ -93,14 +98,14 @@ ELEMENTS = {
 #################################################
 
 # Perform bubble atom ratio stats on following element species.
-BUBBLE_ATOM_RATIO_STATS_ELEMENTS = [['Ne'], ]
+BUBBLE_ATOM_RATIO_STATS_ELEMENTS = [ ]
 
 # TODO: shell pressure stats.
 SHELL_ATOM_RATIO_STATS_ELEMENTS = []
 
 # Perform bubble pressure stats on following element species.
 # In / out bubble pressure are output for each group of atoms.
-BUBBLE_PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ['Ne', 'H', 'O'], ]
+BUBBLE_PRESSURE_STATS_ELEMENTS = []
 
 # Perform shell pressure stats on following element species.
 SHELL_PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ['Ne', 'H', 'O'], ]
@@ -109,10 +114,10 @@ SHELL_PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ['Ne', 'H', 'O'], ]
 BUBBLE_DENSITY_STATS_ELEMENTS = []
 
 # Perform shell density stats on following element species.
-SHELL_DENSITY_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ]
+SHELL_DENSITY_STATS_ELEMENTS = []
 
 # Perform xyz density stats on following element species.
-XYZ_DENSITY_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ]
+XYZ_DENSITY_STATS_ELEMENTS = []
 
 #################################################
 ############### Debug settings ##################

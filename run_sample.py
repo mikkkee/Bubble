@@ -171,7 +171,12 @@ def main():
 
                 box = build_box(atoms[timestep], radius=settings.MAX_RADIUS, timestep=timestep,
                     center=settings.CENTER, use_atomic_volume=settings.USE_ATOMIC_VOL,
+                    average_on_atom=settings.AVERAGE_ON_ATOM,
                     bx=settings.BOUNDARY_X, by=settings.BOUNDARY_Y, bz=settings.BOUNDARY_Z )
+
+                if settings.COMBINE_WATER:
+                    box.combine_water_atoms()
+                    box.measure()
 
                 shell_analysis( box, timestep, base_path, settings )
                 bubble_analysis( box, timestep, base_path, settings )

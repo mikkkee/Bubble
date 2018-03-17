@@ -62,7 +62,7 @@ class Box(object):
 
     PI = 3.1415926
 
-    def __init__(self, timestep=0, radius=None, use_atomic_volume=True, **kwargs):
+    def __init__(self, timestep=0, radius=None, use_atomic_volume=True, average_on_atom=False, **kwargs):
         # Current timestep.
         self.timestep = timestep
         # Maximum bubble radius in box.
@@ -84,8 +84,9 @@ class Box(object):
         self._shell_stress_theta = {}
         self._shell_stress_phi   = { }
         # Container of shell atom count for each element.
+        self.nbins = None
         self._shell_atoms = {}
-        self._shell_atom_objs = {}
+        self._shell_atom_objs = []
         self._shell_volumes = {}
         # Indicator of stats status.
         self._stats_finished = False
@@ -93,6 +94,7 @@ class Box(object):
         # Dump atom coordinates to calculate voro tessellation volume
         self.voro_file_name = 'atom_coors'
         self.use_atomic_volume  = use_atomic_volume
+        self.average_on_atom    = average_on_atom
 
     @property
     def measured(self):
@@ -112,6 +114,46 @@ class Box(object):
         self._center         = coor
         self._measured       = False
         self._stats_finished = False
+
+    def combine_water_atoms(self):
+        """
+        Combine H and O together into a new particle
+        volume = V_h + V_o
+        stress = S_h + S_o
+        coor   = center of mass
+        The sequency of H and O atoms are O H H
+        """
+        self._old_atoms = self.atoms
+        self.atoms = []
+
+        self._old_atoms.sort( key=lambda x: x.id )
+        water = []
+        for atom in self._old_atoms:
+            if atom.element not in ['H', 'O']:
+                self.atoms.append( atom )
+            else:
+                water.append(atom)
+                if len( water ) == 3:
+                    # need to combine the 3 atoms into 1 now
+                    assert [ _ele.element for _ele in water ] == ['O', 'H', 'H']
+                    new_stress = [a+b+c for a, b, c in zip(water[0].stress, water[1].stress, water[2].stress)]
+                    new_volume = sum( _ele.voro_volume for _ele in water )
+                    masses = [ 16 if _ele.element == 'O' else 1 for _ele in water ]
+                    xs     = [ _ele.xyz[0] for _ele in water]
+                    ys     = [ _ele.xyz[ 1 ] for _ele in water ]
+                    zs     = [ _ele.xyz[ 2 ] for _ele in water ]
+
+                    cx = sum( m*x for m,x in zip(masses, xs) ) / sum(masses)
+                    cy = sum( m * y for m, y in zip( masses, ys ) ) / sum( masses )
+                    cz = sum( m * z for m, z in zip( masses, zs ) ) / sum( masses )
+                    new_xyz = (cx, cy, cz)
+
+                    new_id = water[0].id
+                    normal = water[0].normal
+
+                    self.atoms.append( Atom(new_id, type=3, element='H', xyz=new_xyz, stress=new_stress, normal=normal) )
+
+                    water = []
 
     def dump_atoms_for_voro( self, length=None ):
         '''
@@ -220,7 +262,7 @@ class Box(object):
     def measure(self):
         """Measure distance to bubble center for each atom."""
         for atom in self.atoms:
-            coor = np.array(atom.xyz)
+            coor          = np.array(atom.xyz)
             atom.distance = np.linalg.norm(coor - self.center)
 
             if atom.normal:
@@ -237,10 +279,9 @@ class Box(object):
                 atom.sin_phi   = dy / xy_square
                 atom.cos_phi   = dx / xy_square
 
-        if self.use_atomic_volume:
-            self.calc_voro_volumes()
+        self.calc_voro_volumes()
 
-    def stats(self, dr):
+    def stats(self, dr, normal):
         """
         System stats.
         Generate data for atom stats and stress stats for each element.
@@ -249,52 +290,20 @@ class Box(object):
         """
         if not self.measured:
             raise AtomUnmeasuredError("Some atoms are unmeasuerd")
-        nbins = int(math.ceil(self.radius / float(dr)))
 
-        normal = False
+        self.nbins = int(math.ceil(self.radius / float(dr)))
+        self._shell_atom_objs = [ { } for x in range( self.nbins ) ]
+
         for ele, atoms in self._elements.iteritems():
             # Do stats for each element.
-            self._shell_stress[ele] = [0.0 for x in range(nbins)]
-            self._shell_atoms[ele] = [0.0 for x in range(nbins)]
-            self._shell_atom_objs[ ele ]=[[] for x in range(nbins)]
-            self._shell_volumes[ele] = [ 0.0 for x in range(nbins) ]
             for atom in atoms:
-                # By default stress is pressure * volume, whether one wants to calc pressure
-                # based on atomic volume or not
-                factor = 1.0 if not self.use_atomic_volume else  1./atom.voro_volume
-                #factor = 1.0
                 if atom.distance < self.radius:
-                    if not atom.normal:
-                        # xyz pressure, just sum xx yy zz
-                        # Only consider atoms inside maximum bubble.
-                        self._shell_stress[ele][int(atom.distance / dr)] += sum(atom.stress) * factor
-                    else:
-                        normal = True
-                        # normal pressure, need to calculate from Cartesian tensor to Spherical tensor
+                    shell_idx = int( atom.distance / dr )
+                    self._shell_atom_objs[ shell_idx ].setdefault(ele, []).append( atom )
+
+                    if normal:
                         atom.calc_spherical_stress()
 
-                        self._shell_stress_r.setdefault( ele, [0.0 for _x in range(nbins)] )
-                        self._shell_stress_theta.setdefault( ele, [ 0.0 for _x in range( nbins ) ] )
-                        self._shell_stress_phi.setdefault( ele, [ 0.0 for _x in range( nbins ) ] )
-
-                        self._shell_stress[ele][int(atom.distance / dr)]       += atom.spherical_stress[0][0] * factor
-                        self._shell_stress_r[ele][int(atom.distance / dr)]     += atom.spherical_stress[0][0] * factor
-                        self._shell_stress_theta[ele][int(atom.distance / dr)] += atom.spherical_stress[1][1] * factor
-                        self._shell_stress_phi[ele][int(atom.distance / dr)]   += atom.spherical_stress[2][2] * factor
-                    self._shell_atoms[ele][int(atom.distance / dr)] += 1
-                    self._shell_atom_objs[ele][int(atom.distance / dr)].append(atom)
-                    if self.use_atomic_volume:
-                        self._shell_volumes[ele][int(atom.distance / dr)] += atom.voro_volume
-            # Convert shell stats to numpy.Array.
-            self._shell_stress[ele] = np.array(self._shell_stress[ele])
-            self._shell_atoms[ele] = np.array(self._shell_atoms[ele])
-            self._shell_volumes[ele] = np.array(self._shell_volumes[ele])
-
-            if normal:
-                self._shell_stress_r[ele]     = np.array(self._shell_stress_r[ele])
-                self._shell_stress_theta[ele] = np.array(self._shell_stress_theta[ele])
-                self._shell_stress_phi[ ele ] = np.array( self._shell_stress_phi[ ele ] )
-        # No need to run stats again if done for once.
         self._stats_finished = True
 
     def atom_stats(self, element, dr):
@@ -337,59 +346,140 @@ class Box(object):
 
     def shell_pressure_stats(self, elements, dr, normal=False):
         """Average pressure of elements inside shell."""
-        self.stats(dr)
+        self.stats(dr, normal=normal)
 
-        nbins = len(self._shell_stress[elements[0]])
-        print( "NNNNNumber of bins: {}".format(nbins) )
-        # Calculate stress for all element in elements as whole.
-        # Convert numpy.Array to mutable list.
+        print( "NNNNNumber of bins: {}".format(self.nbins) )
+
         if not normal:
+            # atom.stress has 3 elements, xx yy zz components
+            if self.use_atomic_volume:
+                if self.average_on_atom:
+                    # atomic volume is used, pressure is calculated for each atom and then averaged together
+                    stress = []
+                    for idx, shell_atoms in enumerate(self._shell_atom_objs):
+                        pressure_raw = {}
+                        for element, atoms in shell_atoms.iteritems():
+                            if element in elements:
+                                # P = -(S_xx + S_yy + S_zz)/3/V
+                                pressure_raw[element] = [ - sum(atom.stress)/atom.voro_volume/3.0 for atom in atoms ]
+                        # Average pressure = sum(Pressure)/n_atoms
+                        n_atoms = sum( len(_ele) for _ele in pressure_raw.values() )
+                        if n_atoms != 0:
+                            pressure_ave = sum( sum(_ele) for _ele in pressure_raw.values() ) / n_atoms
+                        else:
+                            pressure_ave = 0
+                        stress.append(pressure_ave)
+                    return stress
+                else:
+                    # pressure is calculated as sum(atom stress in a shell) / sum(atom volume in a shell)
+                    stress = []
+                    for idx, shell_atoms in enumerate( self._shell_atom_objs ):
+                        stress_all = 0
+                        volume_all = 0
+                        for element, atoms in shell_atoms.iteritems():
+                            if element in elements:
+                                stress_all += sum( sum(atom.stress) for atom in atoms )
+                                volume_all += sum( atom.voro_volume for atom in atoms )
+                        if volume_all != 0:
+                            pressure_ave = - stress_all / 3.0 / volume_all
+                        else:
+                            pressure_ave = 0
+                        stress.append( pressure_ave )
+                    return stress
+            else:
+                # use shell volume
+                stress = [ ]
+                for idx, shell_atoms in enumerate( self._shell_atom_objs ):
+                    r_min, r_max = idx * dr, (idx + 1)*dr
+                    stress_all = 0
+                    volume_all = self.vol_sphere(r_max) - self.vol_sphere(r_min)
+                    for element, atoms in shell_atoms.iteritems():
+                        if element in elements:
+                            stress_all += sum( sum( atom.stress ) for atom in atoms )
+                    pressure_ave = - stress_all / 3.0 / volume_all
+                    stress.append( pressure_ave )
+                return stress
+        else:
+            # normal pressure, atom.spherical_stress has 6 items: xx, yy, zz, xy, xz, yz.
+            stress_r     = []
+            stress_theta = []
+            stress_phi   = []
 
             if self.use_atomic_volume:
-                # Average stress = total stress / number of atoms                
-                stress_raw = [ x for x in sum( self._shell_stress[ele] for ele in elements ) ]
-                n_atoms    = [ x for x in sum( self._shell_atoms[ele] for ele in elements ) ]
-                stress     = []
-                for ele1, ele2 in zip( stress_raw, n_atoms ):
-                    if ele2 == 0:
-                        stress.append( 0 )
-                    else:
-                        stress.append( ele1 / ele2 )
+
+                if self.average_on_atom:
+                    # Pressure is calculate as average of pressure on each atom
+                    for idx, shell_atoms in enumerate( self._shell_atom_objs ):
+                        pressure_r_raw     = {}
+                        pressure_theta_raw = {}
+                        pressure_phi_raw   = {}
+                        for element, atoms in shell_atoms.iteritems():
+                            if element in elements:
+                                pressure_r_raw[element]     = [ - atom.spherical_stress[0][0] / atom.voro_volume for atom in atoms ]
+                                pressure_theta_raw[element] = [ - atom.spherical_stress[1][1] / atom.voro_volume for atom in atoms ]
+                                pressure_phi_raw[element]   = [ - atom.spherical_stress[2][2] / atom.voro_volume for atom in atoms ]
+
+                        n_atoms = sum( len( _ele ) for _ele in pressure_r_raw.values() )
+                        if n_atoms != 0:
+                            pressure_r_ave     = sum( sum(_ele) for _ele in pressure_r_raw.values() ) / n_atoms
+                            pressure_theta_ave = sum( sum(_ele) for _ele in pressure_theta_raw.values() ) / n_atoms
+                            pressure_phi_ave   = sum( sum(_ele) for _ele in pressure_phi_raw.values() ) / n_atoms
+                        else:
+                            pressure_r_ave = pressure_theta_ave = pressure_phi_ave = 0
+
+                        stress_r.append( pressure_r_ave )
+                        stress_theta.append( pressure_theta_ave )
+                        stress_phi.append( pressure_phi_ave )
+                    return { 'r': stress_r, 'theta': stress_theta, 'phi': stress_phi, }
+
+                else:
+                    # Pressure is calculated as sum(stress)/sum(atomic_volume)
+                    for idx, shell_atoms in enumerate( self._shell_atom_objs ):
+                        stress_r_all     = 0
+                        stress_theta_all = 0
+                        stress_phi_all   = 0
+                        volume_all       = 0
+
+                        for element, atoms in shell_atoms.iteritems():
+                            if element in elements:
+                                stress_r_all     += sum( atom.spherical_stress[0][0] for atom in atoms )
+                                stress_theta_all += sum( atom.spherical_stress[1][1] for atom in atoms )
+                                stress_phi_all   += sum( atom.spherical_stress[2][2] for atom in atoms )
+                                volume_all       += sum( atom.voro_volume for atom in atoms )
+                        if volume_all != 0:
+                            pressure_r_ave     = - stress_r_all / volume_all
+                            pressure_theta_ave = - stress_theta_all / volume_all
+                            pressure_phi_ave   = - stress_phi_all / volume_all
+                        else:
+                            pressure_r_ave = pressure_theta_ave = pressure_phi_ave = 0
+
+                        stress_r.append( pressure_r_ave )
+                        stress_theta.append( pressure_theta_ave )
+                        stress_phi.append( pressure_phi_ave )
+                    return { 'r': stress_r, 'theta': stress_theta, 'phi': stress_phi, }
             else:
-                # Do not use atomic volume, sum all stress and divide by total volume
-                stress = [x for x in sum( self._shell_stress[ele] for ele in elements)]
+                # Use shell volume
+                for idx, shell_atoms in enumerate( self._shell_atom_objs ):
+                    r_min, r_max = idx * dr, (idx+1) * dr
+                    stress_r_all = 0
+                    stress_theta_all = 0
+                    stress_phi_all = 0
+                    volume_all = self.vol_sphere(r_max) - self.vol_sphere(r_min)
 
-            # Calculate pressure.
-            for i in range(nbins):
-                r_low  = i * dr
-                r_high = (i + 1) * dr
-                if self.use_atomic_volume:
-                    stress[i] = 0 - stress[i] / 3
-                else:
-                    volume    = self.vol_sphere(r_high) - self.vol_sphere(r_low)
-                    stress[i] = 0 - stress[i] / volume / 3
+                    for element, atoms in shell_atoms.iteritems():
+                        if element in elements:
+                            stress_r_all += sum( atom.spherical_stress[ 0 ][ 0 ] for atom in atoms )
+                            stress_theta_all += sum( atom.spherical_stress[ 1 ][ 1 ] for atom in atoms )
+                            stress_phi_all += sum( atom.spherical_stress[ 2 ][ 2 ] for atom in atoms )
 
-            return stress
-        else:
-            # Normal and tangent pressure
-            print( "Shell pressure norm keys {}".format( ','.join( self._shell_stress_r.keys() ) ) )
-            stress_r     = [x for x in sum( self._shell_stress_r[ele] for ele in elements )]
-            stress_theta = [x for x in sum( self._shell_stress_theta[ele] for ele in elements )]
-            stress_phi   = [ x for x in sum( self._shell_stress_theta[ ele ] for ele in elements ) ]
-            for i in range(nbins):
-                r_low  = i * dr
-                r_high = (i + 1) * dr
-                if not self.use_atomic_volume:
-                    volume = self.vol_sphere(r_high) - self.vol_sphere(r_low)
-                    stress_r[i]     = 0 - stress_r[i] / volume
-                    stress_theta[i] = 0 - stress_theta[i] / volume
-                    stress_phi[i]   = 0 - stress_phi[i] / volume
-                else:
-                    volume = self._shell_volumes[ i ]
-                    stress_r[i]     = 0 - stress_r[i] / volume 
-                    stress_theta[i] = 0 - stress_theta[i] / volume 
-                    stress_phi[i]   = 0 - stress_phi[i] / volume
-            return stress_r, stress_theta, stress_phi
+                    pressure_r_ave = - stress_r_all / volume_all
+                    pressure_theta_ave = - stress_theta_all / volume_all
+                    pressure_phi_ave = - stress_phi_all / volume_all
+
+                    stress_r.append( pressure_r_ave )
+                    stress_theta.append( pressure_theta_ave )
+                    stress_phi.append( pressure_phi_ave )
+                return { 'r': stress_r, 'theta': stress_theta, 'phi': stress_phi, }
 
     def pressure_between(self, rlow, rhigh):
         """Return the average pressure and number of atoms between rlow
@@ -714,9 +804,9 @@ def average_atom_stress(write=True, step=0, *args):
     return atoms
 
 
-def build_box(atoms, timestep, radius, center, use_atomic_volume, bx, by, bz):
+def build_box(atoms, timestep, radius, center, use_atomic_volume, average_on_atom, bx, by, bz):
     """Build a box from a list of atoms."""
-    box = Box(timestep, radius=radius, center=center, use_atomic_volume=use_atomic_volume)
+    box = Box(timestep, radius=radius, center=center, use_atomic_volume=use_atomic_volume, average_on_atom=average_on_atom)
     for atom in atoms:
         box.add_atom(atom)
     box.set_boundary(bx=bx, by=by, bz=by)
@@ -839,7 +929,8 @@ def shell_pressure(box, elements, out_fmt, header, dr, time, container, normal=F
                 with open(container, 'a') as cc:
                     cc.write(outname + '\n')
         else:
-            shell_r, shell_theta, shell_phi = box.shell_pressure_stats(eles, dr, normal=normal)
+            shell_pressure   = box.shell_pressure_stats(eles, dr, normal=normal)
+            shell_r, shell_theta, shell_phi = shell_pressure['r'], shell_pressure['theta'], shell_pressure['phi']
             # Write to disk.
             outname1 = out_fmt.format(time=time, ele=e) + '_r'
             outname2 = out_fmt.format(time=time, ele=e) + '_theta'
