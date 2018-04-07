@@ -14,9 +14,9 @@ USE_ATOMIC_VOL  = False
 # average on atom or sum atomic volumes together, used only when USE_ATOMIC_VOL=True
 AVERAGE_ON_ATOM = False
 # Combine H2O molecules into a single particle
-COMBINE_WATER   = True
+COMBINE_WATER   = False
 # Are we calculating normal pressure?
-NORMAL          = True
+NORMAL          = False
 
 
 #################################################
@@ -24,15 +24,15 @@ NORMAL          = True
 #################################################
 
 # Path to input stress files.
-DUMP_PATH = ['dump_20180303/', ]
+DUMP_PATH = ['dump_water/100atm/', ]
 
 # input stress file name.
 # DUMP_NAME = 'laststep_all_tenors.out'
 # DUMP_NAME = 'laststep_ke_pair_all_tensors.out'
-DUMP_NAME = 'laststep_all_tensors.out'
+DUMP_NAME = 's_all_last.out'
 
 # Number of lines for each timestep.
-NLINES = 920863
+NLINES = 12435
 
 
 #################################################
@@ -40,10 +40,10 @@ NLINES = 920863
 #################################################
 
 # Bubble center coordinates.
-CENTER = (113.140,    120.240,    115.840)
+CENTER = (25, 25, 25)
 
 # Maximum bubble radius, unit - angstrom.
-MAX_RADIUS = 200
+MAX_RADIUS = 25
 
 # dr - difference of two consequent raidus - used for ratio/pressure stats
 DR = 5
@@ -53,9 +53,9 @@ DENSITY_DR = 5
 SHELL_PRESSURE_DR = 5
 
 # XYZ boundaries.
-BOUNDARY_X = (-1.24819, 218.308 )
-BOUNDARY_Y = (-1.26819, 218.268 )
-BOUNDARY_Z = (-1.26819, 218.248)
+BOUNDARY_X = (-1.20917, 51.2922 )
+BOUNDARY_Y = (-1.17817, 51.3122 )
+BOUNDARY_Z = (-1.34836, 51.2474)
 
 
 ###################################################################
@@ -80,9 +80,9 @@ RADIUS_DN = 10
 
 # Atom elements to corresponding types.
 ELEMENTS = {
-    1: 'Ne',
-    2: 'O',
-    3: 'H',
+    # 1: 'Ne',
+    1: 'O',
+    2: 'H',
 }
 
 # TODO: Average mole weight for each group of elements.
@@ -103,7 +103,7 @@ SHELL_ATOM_RATIO_STATS_ELEMENTS = []
 BUBBLE_PRESSURE_STATS_ELEMENTS = []
 
 # Perform shell pressure stats on following element species.
-SHELL_PRESSURE_STATS_ELEMENTS = [['Ne'], ['H', 'O'], ['Ne', 'H', 'O'], ]
+SHELL_PRESSURE_STATS_ELEMENTS = [ ['H', 'O'], ]
 
 # TODO: bubble density stats.
 BUBBLE_DENSITY_STATS_ELEMENTS = []

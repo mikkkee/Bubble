@@ -3,6 +3,7 @@ from   itertools import islice, product
 import logging
 import MDAnalysis as md
 import math
+import random
 import numpy as np
 import pandas as pd
 import plotly
@@ -231,7 +232,11 @@ class Box(object):
                 atom_id, x, y, z, vol = [ float(ele) for ele in line.split() ]
                 atom_id = int( atom_id )
                 atom = self.atoms[ idx ]
-                assert( atom.id == atom_id )
+                try:
+                    assert( atom.id == atom_id )
+                except Exception as e:
+                    print( atom.id, atom_id )
+                    raise e
                 atom.voro_volume = vol
                 idx += 1
 
@@ -241,6 +246,24 @@ class Box(object):
         self.run_voro_cmd( gnuplot=gnuplot, length=length )
         if not length:
             self.read_voro_volumes()
+
+    def adjust_water_vol(self, ratio=(0.5, 0.25)):
+        """ Adjust volume of H and O in water. For pure water system only """
+        satoms = sorted( self.atoms, key= lambda x: x.id)
+        assert( len( satoms ) % 3 == 0 )
+        assert( ratio[0] + 2 * ratio[1] == 1.0)
+        for idx in xrange( len(satoms) / 3):
+            o = satoms[ idx * 3 ]
+            h1 = satoms[ idx * 3 + 1 ]
+            h2 = satoms[ idx * 3 + 2 ]
+
+            vsum = sum( ele.voro_volume for ele in [o, h1, h2])
+            vo = ratio[0] * vsum
+            vh = ratio[1] * vsum
+
+            o.adj_vol = vo
+            h1.adj_vol = vh
+            h2.adj_vol = vh
 
     def set_boundary(self, bx, by, bz):
         """Set bx by bz together."""
@@ -377,7 +400,7 @@ class Box(object):
                         volume_all = 0
                         for element, atoms in shell_atoms.iteritems():
                             if element in elements:
-                                stress_all += sum( sum(atom.stress) for atom in atoms )
+                                stress_all += sum( sum(atom.stress[:3]) for atom in atoms )
                                 volume_all += sum( atom.voro_volume for atom in atoms )
                         if volume_all != 0:
                             pressure_ave = - stress_all / 3.0 / volume_all
@@ -394,7 +417,7 @@ class Box(object):
                     volume_all = self.vol_sphere(r_max) - self.vol_sphere(r_min)
                     for element, atoms in shell_atoms.iteritems():
                         if element in elements:
-                            stress_all += sum( sum( atom.stress ) for atom in atoms )
+                            stress_all += sum( sum( atom.stress[:3] ) for atom in atoms )
                     pressure_ave = - stress_all / 3.0 / volume_all
                     stress.append( pressure_ave )
                 return stress
@@ -552,6 +575,10 @@ class Box(object):
     def vol_sphere(self, r):
         """Volume of sphere with radius r."""
         return 4.0/3 * Box.PI * (r ** 3)
+
+    def volume(self):
+        """ Box volume """
+        return (self.bx[1] - self.bx[0]) * (self.by[1] - self.by[0]) * (self.bz[1] - self.bz[0])
 
 
 class Trajectory( object ):
@@ -765,6 +792,79 @@ def read_stress(stress_file, N=settings.NLINES, normalPressure=False):
     return atoms
 
 
+def read_pdb(filename):
+    """
+    Read pdb file as a list of atoms
+    """
+    logging.info( "Reading {}".format(filename) )
+    atoms_lines = []
+    with open(filename, 'r') as pdbfile:
+        for line in pdbfile:
+            if line.startswith('CRYST'):
+                cryst_line = line
+            elif line.startswith('ATOM'):
+                atoms_lines.append( line )
+
+    x, y, z = [float(ele) for ele in cryst_line.strip().split()[1:4] ]
+
+    atoms = []
+    for line in atoms_lines:
+        data = line.strip().split()
+        idx = int(data[1])
+        element = data[2][:2]
+        coor = [ float(ele) for ele in data[5:8] ]
+        atoms.append( Atom(identifier=idx, element=element, xyz=coor) )
+    return atoms, (x,y,z)
+
+
+def combine_water(atoms, remove=True):
+    """
+    Combine water atoms
+    """
+    combined = []
+    ne = [ ele for ele in atoms if ele.element == 'Ne' ]
+    wat = [ele for ele in atoms if ele.element != 'Ne' ]
+    logging.info("Before:: {} Ne, {} Water atoms".format(len(ne), len(wat)))
+    idx_wat = len(ne) + 1
+    comb_wat = []
+    for idx in range( len( wat ) / 3 ):
+        coor1 = np.array( wat[ idx * 3 ].xyz )
+        coor2 = np.array( wat[ idx * 3 + 1 ].xyz )
+        coor3 = np.array( wat[ idx * 3 + 2 ].xyz )
+        coor  = (coor1 + coor2 + coor3) / 3.
+        comb_wat.append(Atom(identifier=idx_wat, element='W', xyz=coor))
+        idx_wat += 1
+    selected = random.sample(comb_wat, len(comb_wat)/4)
+    n_ne = len(ne)
+    for idx in xrange(len(selected)):
+        selected[idx].id = idx + 1 + n_ne
+    logging.info("After:: {} Ne, {} Water atoms".format(len(ne), len(selected)))
+    return ne + selected
+
+
+def write_lammps_data(atoms, xyz, filename):
+    """
+    LAMMPS data
+    format: atom idx, molecule idx, atom type, x, y, z,
+    """
+    atom_types = {'Ne':1, 'W':2}
+    x, y, z = xyz
+    header = "LAMMPS bubble\n\n" \
+             "{n_atoms} atoms\n\n" \
+             "{n_types} atom types\n\n" \
+             "0 {x} xlo xhi\n0 {y} ylo yhi\n0 {z} zlo zhi\n\n"\
+             "Atoms\n\n".format(n_atoms=len(atoms), n_types=2,x=x,y=y,z=z)
+    print(header)
+
+    fmt = "{idx} {mol} {atype} {x} {y} {z}\n"
+
+    for idx, atom in enumerate(atoms):
+        header += fmt.format(idx=atom.id, mol=atom.id, atype=atom_types[atom.element], x=atom.xyz[0], y=atom.xyz[1], z=atom.xyz[2])
+
+    with open(filename, 'w') as output:
+        output.write(header)
+
+
 def average_atom_stress(write=True, step=0, *args):
     """Calculates averaged stress from multiple stress files.
     write determines whether to write output or not.
@@ -808,7 +908,7 @@ def build_box(atoms, timestep, radius, center, use_atomic_volume, average_on_ato
     box = Box(timestep, radius=radius, center=center, use_atomic_volume=use_atomic_volume, average_on_atom=average_on_atom)
     for atom in atoms:
         box.add_atom(atom)
-    box.set_boundary(bx=bx, by=by, bz=by)
+    box.set_boundary(bx=bx, by=by, bz=bz)
     box.measure()
     return box
 
