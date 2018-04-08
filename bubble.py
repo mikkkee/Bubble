@@ -834,7 +834,10 @@ def combine_water(atoms, remove=True):
         coor  = (coor1 + coor2 + coor3) / 3.
         comb_wat.append(Atom(identifier=idx_wat, element='W', xyz=coor))
         idx_wat += 1
-    selected = random.sample(comb_wat, len(comb_wat)/4)
+    if remove:
+        selected = random.sample(comb_wat, len(comb_wat)/4)
+    else:
+        selected = comb_wat
     n_ne = len(ne)
     for idx in xrange(len(selected)):
         selected[idx].id = idx + 1 + n_ne
