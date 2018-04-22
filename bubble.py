@@ -854,15 +854,17 @@ def write_lammps_data(atoms, xyz, filename):
     x, y, z = xyz
     header = "LAMMPS bubble\n\n" \
              "{n_atoms} atoms\n\n" \
-             "{n_types} atom types\n\n" \
+             "{n_types} atom types\n" \
+             "0 bond types\n" \
+             "0 angle types\n\n" \
              "0 {x} xlo xhi\n0 {y} ylo yhi\n0 {z} zlo zhi\n\n"\
              "Atoms\n\n".format(n_atoms=len(atoms), n_types=2,x=x,y=y,z=z)
     print(header)
 
-    fmt = "{idx} {mol} {atype} {x} {y} {z}\n"
+    fmt = "{idx} {mol} {atype} {charge} {x} {y} {z}\n"
 
     for idx, atom in enumerate(atoms):
-        header += fmt.format(idx=atom.id, mol=atom.id, atype=atom_types[atom.element], x=atom.xyz[0], y=atom.xyz[1], z=atom.xyz[2])
+        header += fmt.format(idx=atom.id, mol=atom.id, atype=atom_types[atom.element], charge=0, x=atom.xyz[0], y=atom.xyz[1], z=atom.xyz[2])
 
     with open(filename, 'w') as output:
         output.write(header)
